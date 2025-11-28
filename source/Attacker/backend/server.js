@@ -1,8 +1,10 @@
+require('dotenv').config();
 const express = require('express');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const mysql = require('mysql2/promise');
+const cors = require('cors');
 
 // Configuration
 const PORT = process.env.PORT || 5000;
@@ -85,6 +87,7 @@ const storage = multer.diskStorage({
 const upload = multer({ storage });
 
 const app = express();
+app.use(cors()); // Enable CORS for all origins
 app.use(express.json());
 app.use(requestLogger);
 

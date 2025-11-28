@@ -4,6 +4,7 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
+    "dev": "node server.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "engines": {
@@ -14,6 +15,8 @@
   "license": "ISC",
   "description": "Backend server for cyber project",
   "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
     "express": "^5.1.0",
     "multer": "^2.0.2",
     "mysql2": "^3.15.3"
