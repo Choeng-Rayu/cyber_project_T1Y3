@@ -1,6 +1,11 @@
 # Configuration
 $VictimFolder = "C:\MalwareLab\VictimFiles"
-$ServerUploadURL = "http://localhost:5000/upload"
+
+# ===== IMPORTANT: Configure this with your SERVER LAPTOP IP =====
+# On SERVER laptop, run: ipconfig (Windows) and find IPv4 Address
+# Example: "192.168.x.x" or "10.x.x.x"
+$ServerIP = "192.168.1.100"  # <-- CHANGE THIS to your server's IP
+$ServerUploadURL = "http://${ServerIP}:5000/upload"
 
 Write-Host "Starting SAFE simulation..."
 
