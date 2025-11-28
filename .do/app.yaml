@@ -1,0 +1,21 @@
+name: taskbot
+region: sgp
+services:
+  - name: backend
+    github:
+      repo: Choeng-Rayu/cyber_project_T1Y3
+      branch: main
+      deploy_on_push: true
+    source_dir: /source/Attacker
+    build_command: npm install
+    run_command: npm start
+    http_port: 8080
+    instance_count: 1
+    instance_size_slug: apps-s-1vcpu-0.5gb
+    routes:
+      - path: /
+    envs:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: "8080"

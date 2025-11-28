@@ -4,7 +4,7 @@ const path = require('path');
 const fs = require('fs');
 
 // Configuration
-const PORT = 5000;
+const PORT = process.env.PORT || 5000;
 const HOST = '0.0.0.0'; // Listen on all network interfaces
 
 // Upload directory
