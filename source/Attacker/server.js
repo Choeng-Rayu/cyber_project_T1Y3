@@ -5,7 +5,7 @@ const fs = require('fs');
 
 // Configuration
 const PORT = 5000;
-const HOST = 'localhost';
+const HOST = '0.0.0.0'; // Listen on all network interfaces
 
 // Upload directory
 const uploadsDir = path.join(__dirname, 'uploads');
@@ -71,11 +71,25 @@ app.use((err, req, res, next) => {
 
 // Server start
 const server = app.listen(PORT, HOST, () => {
-    const baseUrl = `http://${HOST}:${PORT}`;
+    const os = require('os');
+    const networkInterfaces = os.networkInterfaces();
+    let localIP = 'localhost';
+    
+    for (const name of Object.keys(networkInterfaces)) {
+        for (const iface of networkInterfaces[name]) {
+            if (iface.family === 'IPv4' && !iface.internal) {
+                localIP = iface.address;
+                break;
+            }
+        }
+    }
+    
+    const baseUrl = `http://${localIP}:${PORT}`;
     console.log(`\n${'='.repeat(60)}`);
     console.log(`🚀 Attacker Server is running!`);
     console.log(`${'='.repeat(60)}`);
     console.log(`\n📍 Server URL: ${baseUrl}`);
+    console.log(`\n🔗 For remote clients, use: http://${localIP}:${PORT}`);
     console.log(`\n📌 Available endpoints:`);
     console.log(`   - Ping:   ${baseUrl}/ping`);
     console.log(`   - Upload: POST ${baseUrl}/upload`);
