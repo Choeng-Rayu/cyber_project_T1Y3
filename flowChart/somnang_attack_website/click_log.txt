@@ -11,3 +11,11 @@
 [2025-12-01T08:52:47.252Z] DOWNLOAD_ERROR EISDIR, read
 [2025-12-01T08:52:57.892Z] DOWNLOAD_REQUEST from ::1 - Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15
 [2025-12-01T08:52:57.893Z] DOWNLOAD_ERROR EISDIR, read
+[2025-12-01T16:07:12.449Z] DOWNLOAD_REQUEST from ::1 - Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15
+[2025-12-01T16:07:12.452Z] DOWNLOAD_ERROR EISDIR, read
+[2025-12-01T16:07:24.164Z] DOWNLOAD_REQUEST from ::1 - Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15
+[2025-12-01T16:07:24.165Z] DOWNLOAD_ERROR EISDIR, read
+[2025-12-01T16:08:20.882Z] DOWNLOAD_REQUEST from ::1 - Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15
+[2025-12-01T16:08:20.883Z] DOWNLOAD_ERROR EISDIR, read
+[2025-12-01T16:08:21.524Z] DOWNLOAD_REQUEST from ::1 - Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15
+[2025-12-01T16:08:21.525Z] DOWNLOAD_ERROR EISDIR, read
