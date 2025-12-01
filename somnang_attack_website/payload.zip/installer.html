@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Photoshop Installer</title>
+<style>
+    body {
+        font-family: Arial, sans-serif;
+        background: #1e1e1e;
+        color: #e0e0e0;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+        margin: 0;
+    }
+    .installer-window {
+        background: #2b2b2b;
+        width: 420px;
+        padding: 30px;
+        border-radius: 12px;
+        text-align: center;
+        box-shadow: 0 0 25px rgba(0,0,0,0.5);
+    }
+    .logo {
+        width: 90px;
+    }
+    h2 {
+        margin-bottom: 10px;
+        color: #31a8ff;
+    }
+    .progress-bar {
+        width: 100%;
+        background: #3a3a3a;
+        height: 12px;
+        border-radius: 6px;
+        overflow: hidden;
+        margin: 20px 0;
+    }
+    .progress {
+        height: 100%;
+        width: 0%;
+        background: #31a8ff;
+        transition: width 3s;
+    }
+    .install-btn {
+        background: #31a8ff;
+        padding: 12px 20px;
+        border: none;
+        border-radius: 6px;
+        color: #fff;
+        font-weight: bold;
+        cursor: pointer;
+        width: 100%;
+    }
+    .install-btn:hover {
+        background: #0078d7;
+    }
+</style>
+</head>
+<body>
+
+<div class="installer-window">
+    <img src="photoshop-logo.png" alt="Photoshop Logo" class="logo">
+    <h2>Installing Photoshop CC 2025</h2>
+    <p>Click Install to begin setup.</p>
+
+    <div class="progress-bar">
+        <div class="progress" id="progress"></div>
+    </div>
+
+    <button class="install-btn" id="installBtn">Install</button>
+</div>
+
+<script>
+document.getElementById("installBtn").addEventListener("click", () => {
+    const progress = document.getElementById("progress");
+    const button = document.getElementById("installBtn");
+
+    button.disabled = true;
+    button.innerText = "Installing...";
+
+    // Fake install animation
+    setTimeout(() => {
+        progress.style.width = "100%";
+    }, 200);
+
+    setTimeout(() => {
+        alert("Photoshop Installed Successfully!");
+        button.disabled = false;
+        button.innerText = "Install";
+        progress.style.width = "0%";
+    }, 3500);
+});
+</script>
+
+</body>
+</html>
