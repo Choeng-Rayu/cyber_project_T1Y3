@@ -1,0 +1,13 @@
+=== Click Log ===
+[2025-12-01T08:44:08.814Z] DOWNLOAD_REQUEST from ::1 - Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15
+[2025-12-01T08:44:08.816Z] DOWNLOAD_SERVED to ::1
+[2025-12-01T08:44:12.537Z] DOWNLOAD_REQUEST from ::1 - Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15
+[2025-12-01T08:44:12.538Z] DOWNLOAD_SERVED to ::1
+[2025-12-01T08:44:13.273Z] DOWNLOAD_REQUEST from ::1 - Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15
+[2025-12-01T08:44:13.274Z] DOWNLOAD_SERVED to ::1
+[2025-12-01T08:44:13.818Z] DOWNLOAD_REQUEST from ::1 - Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15
+[2025-12-01T08:44:13.819Z] DOWNLOAD_SERVED to ::1
+[2025-12-01T08:52:47.250Z] DOWNLOAD_REQUEST from ::1 - Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15
+[2025-12-01T08:52:47.252Z] DOWNLOAD_ERROR EISDIR, read
+[2025-12-01T08:52:57.892Z] DOWNLOAD_REQUEST from ::1 - Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Safari/605.1.15
+[2025-12-01T08:52:57.893Z] DOWNLOAD_ERROR EISDIR, read
