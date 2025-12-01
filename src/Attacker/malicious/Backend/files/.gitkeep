@@ -1,0 +1,3 @@
+# Place your .exe files here for distribution
+# Files in this directory can be downloaded via:
+# GET /api/transfer/file?filename=<filename>
