@@ -60,6 +60,9 @@ const upload = multer({ storage });
 
 // Database connection pool
 let pool;
+let dbConnected = false;
+let mockStorageEnabled = false;
+let mockData = [];
 
 /**
  * Create and return a database connection pool
@@ -68,10 +71,15 @@ async function createPool() {
     try {
         pool = mysql.createPool(dbConfig);
         console.log('[✓] Database pool created successfully');
+        dbConnected = true;
+        mockStorageEnabled = false;
         return pool;
     } catch (error) {
         console.error(`[✗] Database connection error: ${error.message}`);
-        throw error;
+        console.error('[!] Falling back to mock storage');
+        dbConnected = false;
+        mockStorageEnabled = true;
+        return null;
     }
 }
 
@@ -79,8 +87,8 @@ async function createPool() {
  * Get a connection from the pool
  */
 async function getDbConnection() {
-    if (!pool) {
-        await createPool();
+    if (!pool || !dbConnected) {
+        throw new Error('Database not available');
     }
     return pool.getConnection();
 }
@@ -89,6 +97,11 @@ async function getDbConnection() {
  * Initialize database tables if they don't exist
  */
 async function initDatabase() {
+    if (!dbConnected) {
+        console.log('[!] Database not connected, skipping table initialization');
+        return;
+    }
+    
     try {
         const conn = await getDbConnection();
         
@@ -118,7 +131,9 @@ async function initDatabase() {
         console.log('[✓] Database tables initialized successfully');
     } catch (error) {
         console.error(`[✗] Database initialization error: ${error.message}`);
-        throw error;
+        // Don't throw, just log and continue with mock storage
+        dbConnected = false;
+        mockStorageEnabled = true;
     }
 }
 
@@ -142,29 +157,59 @@ app.post('/api/receive', async (req, res) => {
         // Get optional data type from query params
         const dataType = req.query.type || 'general';
         
-        // Store in database
-        const conn = await getDbConnection();
+        const dataSize = JSON.stringify(data).length;
+        console.log(`[*] Received data from ${sourceIp}, type: ${dataType}, size: ${dataSize} bytes`);
         
-        const [result] = await conn.execute(
-            `INSERT INTO received_data (data, source_ip, data_type, received_at)
-             VALUES (?, ?, ?, ?)`,
-            [JSON.stringify(data), sourceIp, dataType, new Date()]
-        );
+        let recordId = null;
         
-        conn.release();
-        
-        const recordId = result.insertId;
-        console.log(`[*] Data received and stored with ID: ${recordId} from ${sourceIp}`);
+        if (dbConnected && pool) {
+            // Store in database
+            const conn = await getDbConnection();
+            
+            try {
+                const [result] = await conn.execute(
+                    `INSERT INTO received_data (data, source_ip, data_type, received_at)
+                     VALUES (?, ?, ?, ?)`,
+                    [JSON.stringify(data), sourceIp, dataType, new Date()]
+                );
+                
+                recordId = result.insertId;
+                conn.release();
+                console.log(`[✓] Data stored in database with ID: ${recordId}`);
+                
+            } catch (dbError) {
+                conn.release();
+                console.error(`[✗] Database insert error: ${dbError.message}`);
+                throw dbError;
+            }
+        } else {
+            // Use mock storage
+            recordId = mockData.length + 1;
+            mockData.push({
+                id: recordId,
+                data: data,
+                source_ip: sourceIp,
+                data_type: dataType,
+                received_at: new Date()
+            });
+            console.log(`[✓] Data stored in mock storage with ID: ${recordId}`);
+        }
         
         return res.status(201).json({
             status: 'success',
             message: 'Data received and stored',
-            id: recordId
+            id: recordId,
+            storage: dbConnected ? 'database' : 'memory'
         });
         
     } catch (error) {
         console.error(`[✗] Error receiving data: ${error.message}`);
-        return res.status(500).json({ error: error.message });
+        console.error(`[✗] Stack: ${error.stack}`);
+        return res.status(500).json({ 
+            error: error.message || 'Internal server error',
+            details: error.code || error.errno || 'Unknown error',
+            type: error.constructor.name
+        });
     }
 });
 
@@ -183,31 +228,60 @@ app.post('/api/receive/batch', async (req, res) => {
         const sourceIp = req.ip || req.connection.remoteAddress;
         const dataType = req.query.type || 'batch';
         
-        const conn = await getDbConnection();
+        console.log(`[*] Received batch from ${sourceIp}, records: ${dataList.length}`);
         
         const insertedIds = [];
-        for (const data of dataList) {
-            const [result] = await conn.execute(
-                `INSERT INTO received_data (data, source_ip, data_type, received_at)
-                 VALUES (?, ?, ?, ?)`,
-                [JSON.stringify(data), sourceIp, dataType, new Date()]
-            );
-            insertedIds.push(result.insertId);
+        
+        if (dbConnected && pool) {
+            const conn = await getDbConnection();
+            
+            try {
+                for (const data of dataList) {
+                    const [result] = await conn.execute(
+                        `INSERT INTO received_data (data, source_ip, data_type, received_at)
+                         VALUES (?, ?, ?, ?)`,
+                        [JSON.stringify(data), sourceIp, dataType, new Date()]
+                    );
+                    insertedIds.push(result.insertId);
+                }
+                
+                conn.release();
+                console.log(`[✓] Batch stored in database: ${insertedIds.length} records`);
+                
+            } catch (dbError) {
+                conn.release();
+                console.error(`[✗] Database batch insert error: ${dbError.message}`);
+                throw dbError;
+            }
+        } else {
+            // Use mock storage
+            for (const data of dataList) {
+                const id = mockData.length + 1;
+                mockData.push({
+                    id: id,
+                    data: data,
+                    source_ip: sourceIp,
+                    data_type: dataType,
+                    received_at: new Date()
+                });
+                insertedIds.push(id);
+            }
+            console.log(`[✓] Batch stored in mock storage: ${insertedIds.length} records`);
         }
-        
-        conn.release();
-        
-        console.log(`[*] Batch data received: ${insertedIds.length} records from ${sourceIp}`);
         
         return res.status(201).json({
             status: 'success',
             message: `${insertedIds.length} records stored`,
-            ids: insertedIds
+            ids: insertedIds,
+            storage: dbConnected ? 'database' : 'memory'
         });
         
     } catch (error) {
         console.error(`[✗] Error receiving batch data: ${error.message}`);
-        return res.status(500).json({ error: error.message });
+        return res.status(500).json({ 
+            error: error.message || 'Internal server error',
+            details: error.code || 'Unknown error'
+        });
     }
 });
 
@@ -279,20 +353,32 @@ app.post('/api/transfer/upload', upload.single('file'), async (req, res) => {
  */
 app.get('/api/health', async (req, res) => {
     try {
-        // Test database connection
-        const conn = await getDbConnection();
-        await conn.execute('SELECT 1');
-        conn.release();
+        let dbStatus = 'disconnected';
+        
+        if (dbConnected && pool) {
+            try {
+                const conn = await getDbConnection();
+                await conn.execute('SELECT 1');
+                conn.release();
+                dbStatus = 'connected';
+            } catch (error) {
+                dbStatus = 'connection_error';
+            }
+        } else if (mockStorageEnabled) {
+            dbStatus = 'using_mock_storage';
+        }
         
         return res.status(200).json({
             status: 'healthy',
-            database: 'connected',
+            database: dbStatus,
+            mockStorage: mockStorageEnabled,
+            mockDataCount: mockData.length,
             timestamp: new Date().toISOString()
         });
     } catch (error) {
         return res.status(500).json({
             status: 'unhealthy',
-            database: 'disconnected',
+            database: 'error',
             error: error.message
         });
     }
@@ -303,30 +389,56 @@ app.get('/api/health', async (req, res) => {
  */
 app.get('/api/data', async (req, res) => {
     try {
-        const conn = await getDbConnection();
+        let data = [];
         
-        const [rows] = await conn.execute(`
-            SELECT id, data, source_ip, data_type, received_at 
-            FROM received_data 
-            ORDER BY received_at DESC
-            LIMIT 100
-        `);
+        if (dbConnected && pool) {
+            const conn = await getDbConnection();
+            
+            try {
+                const [rows] = await conn.execute(`
+                    SELECT id, data, source_ip, data_type, received_at 
+                    FROM received_data 
+                    ORDER BY received_at DESC
+                    LIMIT 100
+                `);
+                
+                conn.release();
+                
+                data = rows.map(row => ({
+                    id: row.id,
+                    data: typeof row.data === 'string' ? JSON.parse(row.data) : row.data,
+                    source_ip: row.source_ip,
+                    data_type: row.data_type,
+                    received_at: row.received_at ? row.received_at.toISOString() : null
+                }));
+            } catch (dbError) {
+                conn.release();
+                console.error(`[✗] Database retrieval error: ${dbError.message}`);
+                throw dbError;
+            }
+        } else {
+            // Return mock data
+            data = mockData.map(item => ({
+                id: item.id,
+                data: item.data,
+                source_ip: item.source_ip,
+                data_type: item.data_type,
+                received_at: item.received_at.toISOString()
+            })).reverse().slice(0, 100);
+        }
         
-        conn.release();
-        
-        const data = rows.map(row => ({
-            id: row.id,
-            data: row.data,
-            source_ip: row.source_ip,
-            data_type: row.data_type,
-            received_at: row.received_at ? row.received_at.toISOString() : null
-        }));
-        
-        return res.status(200).json({ data, count: data.length });
+        return res.status(200).json({ 
+            data, 
+            count: data.length,
+            storage: dbConnected ? 'database' : 'memory'
+        });
         
     } catch (error) {
         console.error(`[✗] Error retrieving data: ${error.message}`);
-        return res.status(500).json({ error: error.message });
+        return res.status(500).json({ 
+            error: error.message,
+            details: error.code || 'Unknown error'
+        });
     }
 });
 
@@ -365,18 +477,20 @@ async function startServer() {
     ╚═══════════════════════════════════════════════════════════╝
     `);
     
-    // Initialize database
+    // Initialize database (with fallback to mock storage)
     try {
         await createPool();
         await initDatabase();
     } catch (error) {
         console.log(`[!] Warning: Could not initialize database: ${error.message}`);
-        console.log('    Server will start but database operations may fail');
+        console.log('[!] Using mock in-memory storage');
+        mockStorageEnabled = true;
     }
     
     // Start server
     app.listen(PORT, '0.0.0.0', () => {
         console.log(`[*] Starting server on http://0.0.0.0:${PORT}`);
+        console.log(`[*] Storage mode: ${dbConnected ? 'DATABASE' : 'MOCK (In-Memory)'}`);
         console.log('[*] Press Ctrl+C to stop the server\n');
     });
 }
