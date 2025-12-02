@@ -26,6 +26,9 @@ ENV/
 uploads/*
 !uploads/.gitkeep
 
+# Logs
+click_log.txt
+
 # Environment variables
 .env
 .env.local
