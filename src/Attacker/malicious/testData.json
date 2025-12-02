@@ -1,0 +1,35 @@
+{
+    "os": "Windows",
+    "summary": {
+        "browsers_found": 1,
+        "ssh_keys_found": 0,
+        "env_files_found": 0,
+        "cloud_creds_found": 0,
+        "recent_files_found": 9,
+        "total_sensitive_files": 9
+    },
+    "hostname": "CyberTest",
+    "username": "vboxuser",
+    "timestamp": "2025-12-02T10:14:04.212648",
+    "os_version": "10.0.19045",
+    "user_domain": "CYBERTEST",
+    "computer_name": "CYBERTEST",
+    "data_collected": {
+        "ssh_keys": [],
+        "env_files": [],
+        "browser_data": [
+            {
+                "path": "C:\\Users\\vboxuser\\AppData\\Local\\Microsoft\\Edge\\User Data",
+                "browser": "edge",
+                "data_found": [
+                    {
+                        "file": "Local State",
+                        "path": "C:\\Users\\vboxuser\\AppData\\Local\\Microsoft\\Edge\\User Data\\Local State",
+                        "size": 52987
+                    }
+                ]
+            }
+        ]
+    },
+    "home_directory": "C:\\Users\\vboxuser"
+}
