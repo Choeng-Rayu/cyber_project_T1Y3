@@ -1,0 +1,9 @@
+[2025-12-04 21:05:07] Anti-AutoRun Defender started
+[2025-12-04 21:05:22] Starting full system scan
+[2025-12-04 21:05:22] Full scan completed. Found 14 threats.
+[2025-12-04 21:06:18] Starting threat removal
+[2025-12-04 21:06:18] Threat removal completed
+[2025-12-04 21:10:19] Starting automatic scan and removal
+[2025-12-04 21:10:19] Removed registry threat: com.cron.electron
+[2025-12-04 21:10:19] Removed registry threat: com.squirrel.Postman-Agent.PostmanAgent
+[2025-12-04 21:10:19] Scan and removal completed. Removed: 2, Failed: 1
