@@ -1,0 +1,18 @@
+┌─────────────────────────────────────────────────────────┐
+│                    ATTACK SIMULATION                     │
+└─────────────────────────────────────────────────────────┘
+
+Step 1: Attacker starts C&C server
+        └─> server.js runs on localhost:5000
+            └─> Waits to receive stolen files
+
+Step 2: Malware executes on victim machine
+        ├─> main.py OR simulation.ps1
+        │   └─> Scans victim files directory
+        │   └─> Encrypts/Exfiltrates files
+        │   └─> Logs activities
+
+Step 3: Data exfiltration
+        └─> Files uploaded to attacker server
+            └─> Stored in uploads/ with timestamp
+            └─> Server logs success/failure

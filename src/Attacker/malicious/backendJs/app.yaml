@@ -1,0 +1,37 @@
+# DigitalOcean App Platform Specification
+name: backend-server
+services:
+  - name: backend-api
+    github:
+      repo: Choeng-Rayu/cyber_project_T1Y3
+      branch: main
+      deploy_on_push: true
+    source_dir: src/Attacker/malicious/backendJs
+    dockerfile_path: Dockerfile
+    http_port: 5000
+    instance_count: 1
+    instance_size_slug: basic-xxs
+    routes:
+      - path: /
+    envs:
+      - key: DB_HOST
+        scope: RUN_TIME
+        type: SECRET
+      - key: DB_PORT
+        scope: RUN_TIME
+        value: "21011"
+      - key: DB_USER
+        scope: RUN_TIME
+        type: SECRET
+      - key: DB_PASSWORD
+        scope: RUN_TIME
+        type: SECRET
+      - key: DB_NAME
+        scope: RUN_TIME
+        value: "defaultdb"
+      - key: PORT
+        scope: RUN_TIME
+        value: "5000"
+      - key: NODE_ENV
+        scope: RUN_TIME
+        value: "production"
