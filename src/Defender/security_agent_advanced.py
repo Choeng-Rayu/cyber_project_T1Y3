@@ -27,7 +27,7 @@ import psutil
 MONITOR_FOLDERS = [
     os.path.expanduser("~/Downloads"),
     os.path.expanduser("~/Desktop"),
-    "/tmp" if platform.system() != "Windows" else r"C:\Windows\Temp"
+    "/tmp" if platform.system() != "Windows" else os.environ.get("TEMP", os.path.expanduser("~/AppData/Local/Temp"))
 ]
 
 QUARANTINE_DIR = os.path.join(os.getcwd(), "quarantine")
@@ -212,14 +212,41 @@ class AgentHandler(FileSystemEventHandler):
 def start_folder_monitors():
     observer = Observer()
     handler = AgentHandler()
+    scheduled_folders = []
     for folder in MONITOR_FOLDERS:
         try:
             if os.path.exists(folder):
                 observer.schedule(handler, folder, recursive=True)
                 log(f"[MONITOR] Watching {folder}")
+                scheduled_folders.append(folder)
         except Exception as e:
             log(f"[MONITOR-ERR] {folder} -> {e}")
-    observer.start()
+    
+    if not scheduled_folders:
+        log("[MONITOR] No folders could be scheduled for monitoring.")
+        return None
+    
+    try:
+        observer.start()
+    except PermissionError as e:
+        log(f"[MONITOR-ERR] Permission denied when starting observer: {e}")
+        log("[MONITOR] Try running as Administrator or remove protected folders from MONITOR_FOLDERS")
+        # Try again with only accessible folders
+        observer = Observer()
+        for folder in scheduled_folders:
+            try:
+                # Test if we can actually access the folder
+                os.listdir(folder)
+                observer.schedule(handler, folder, recursive=True)
+                log(f"[MONITOR] Re-scheduled: {folder}")
+            except (PermissionError, OSError) as e:
+                log(f"[MONITOR-SKIP] Skipping {folder} due to permission error: {e}")
+        try:
+            observer.start()
+        except Exception as e:
+            log(f"[MONITOR-ERR] Failed to start observer: {e}")
+            return None
+    
     return observer
 
 # ---------------- NETWORK BLOCKING (best-effort) ----------------
@@ -345,6 +372,9 @@ def main():
     ensure_quarantine()
     # folders monitor
     observer = start_folder_monitors()
+    if observer is None:
+        log("[ERROR] Failed to start folder monitors. Exiting.")
+        return
     # start usb monitor thread
     t_usb = threading.Thread(target=usb_monitor_loop, daemon=True)
     t_usb.start()
@@ -357,8 +387,9 @@ def main():
             time.sleep(1)
     except KeyboardInterrupt:
         log("Shutting down...")
-        observer.stop()
-        observer.join()
+        if observer:
+            observer.stop()
+            observer.join()
 
 if __name__ == "__main__":
     main()
