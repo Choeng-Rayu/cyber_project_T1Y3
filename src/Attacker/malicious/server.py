@@ -366,5 +366,5 @@ class EnhancedC2Server:
 
 if __name__ == "__main__":
     # You can customize host and port here
-    c2_server = EnhancedC2Server(host='10.0.2.15', port=4444)
+    c2_server = EnhancedC2Server(host='0.0.0.0', port=4444)
     c2_server.start_server()

