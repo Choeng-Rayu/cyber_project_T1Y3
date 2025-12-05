@@ -1,0 +1,22 @@
+for window 10
+Windows + D (desktop)
+
+Windows + R (Run dialog)
+
+Type: windowsdefender: (carefully)
+
+Enter
+
+//Tab 4 times (empirical count)
+
+Enter (Virus settings)
+
+Tab 4 times
+
+Enter (Manage settings)
+
+Tab 4 times
+
+Spacebar (Toggle real-time)
+
+Alt + F4 (Close)
