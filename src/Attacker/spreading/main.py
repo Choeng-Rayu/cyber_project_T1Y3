@@ -1,88 +1,211 @@
 """
-USB Spreading Main Execution Script
-Professional Red Team USB Worm Testing
+Network Spreading Malware Demonstrations
+Shows different types of network worms and spreading techniques
+⚠️ FOR EDUCATIONAL PURPOSES ONLY ⚠️
 """
 
-import os
 import sys
-from pathlib import Path
+import argparse
 
-# Import the professional framework
-from usbSpreading import USBWormFramework, logger
-
-
-def setup_test_environment(usb_path: str = "./test_usb"):
-    """Setup a test USB environment with dummy malware"""
-    logger.info(f"Setting up test environment at: {usb_path}")
-    
-    try:
-        # Create test USB directory
-        os.makedirs(usb_path, exist_ok=True)
-        
-        # Create dummy malware on the "USB"
-        malware_path = f"{usb_path}/main.py"
-        if not os.path.exists(malware_path):
-            with open(malware_path, 'w') as f:
-                f.write("""#!/usr/bin/env python3
-# Simulated USB Worm Payload
-import os
-print("[*] This is simulated malware")
-print("[*] In real scenario, this would encrypt files")
-""")
-            logger.info(f"✓ Created dummy malware: {malware_path}")
-        
-        return usb_path
-    except Exception as e:
-        logger.error(f"Error setting up test environment: {e}")
-        return None
+# Import demonstration modules
+from real_command_execution import demo_real_execution
 
 
-def main():
-    """Main execution point"""
+def demo_command_execution():
+    """Demo 1: Real command execution techniques"""
     print("""
 ╔═══════════════════════════════════════════════════════╗
-║  🔴 USB WORM FRAMEWORK - PROFESSIONAL EDITION        ║
-║  For Authorized Penetration Testing Only             ║
+║  Demo 1: Real Command Execution                      ║
+║  Educational Demonstration Only                      ║
+╚═══════════════════════════════════════════════════════╝
+    """)
+    demo_real_execution()
+
+
+def demo_simple_worm():
+    """Demo 2: Simple "Hello World" network worm"""
+    print("""
+╔═══════════════════════════════════════════════════════╗
+║  Demo 2: Simple "Hello World" Network Worm           ║
+║  Shows basic network spreading with SSH              ║
 ╚═══════════════════════════════════════════════════════╝
     """)
     
-    # Get USB path from command line or use default
-    usb_path = sys.argv[1] if len(sys.argv) > 1 else "./test_usb"
+    # Import and run the simple worm
+    from simple_hello_world_worm import SimpleNetworkWorm
     
-    # Setup test environment if it doesn't exist
-    if not os.path.exists(usb_path):
-        logger.info("Test USB directory not found, creating it...")
-        usb_path = setup_test_environment(usb_path)
-        if usb_path is None:
-            logger.error("Failed to setup test environment")
-            return
+    print("""
+⚠️  WARNING: This will scan and attempt to access systems on your network!
+
+This demonstration will:
+1. Scan local network for SSH servers
+2. Try common passwords (admin:admin, root:root, etc.)
+3. Display "Hello World You've Been Hacked!" on vulnerable machines
+4. Copy itself to infected machines for further spreading
+
+ONLY proceed if:
+✓ You own ALL machines on the network
+✓ You are in an isolated lab environment
+✓ You have written authorization
+""")
     
-    # Initialize the framework
-    engagement_id = f"ENGAGEMENT_{os.path.basename(usb_path).upper()}"
-    framework = USBWormFramework(engagement_id)
+    response = input("\nDo you have authorization and are in a lab? (yes/no): ")
     
-    logger.info(f"🎯 Starting USB insertion simulation...")
-    logger.info(f"📍 USB Path: {usb_path}")
+    if response.lower() != 'yes':
+        print("\n✓ Good decision! Exiting demonstration.")
+        print("\nStudy the code in 'simple_hello_world_worm.py' to understand:")
+        print("  • How worms scan networks")
+        print("  • How SSH brute forcing works")
+        print("  • How worms self-replicate")
+        print("  • How autonomous spreading occurs")
+        return
     
-    # Execute USB insertion handling
-    result = framework.handle_usb_insert(usb_path)
+    print("\n[*] Starting simple worm demonstration...\n")
     
-    # Print summary
-    framework.print_summary()
+    # Create and run worm
+    worm = SimpleNetworkWorm()
+    worm.start()
+
+
+def demo_advanced_worm():
+    """Demo 3: Advanced network worm with full features"""
+    print("""
+╔═══════════════════════════════════════════════════════╗
+║  Demo 3: Advanced Network Worm                       ║
+║  Complete attack chain implementation                ║
+╚═══════════════════════════════════════════════════════╝
+    """)
     
-    # Save report
-    report_path = framework.save_report()
-    logger.info(f"📄 Detailed report saved: {report_path}")
+    # Import and run the advanced worm
+    from HACKER_IMPLEMENTATION_GUIDE import RealNetworkWorm
     
-    logger.info("✓ Engagement complete!")
+    print("""
+⚠️⚠️⚠️ CRITICAL WARNING ⚠️⚠️⚠️
+
+This is a COMPLETE network worm with:
+• Network scanning
+• Credential brute forcing
+• Remote code execution
+• Data exfiltration
+• Persistence installation
+• Lateral movement
+• Command & Control
+
+This is REAL MALWARE! Only use in authorized isolated lab.
+""")
+    
+    response = input("\nProceed with advanced worm demo? (yes/no): ")
+    
+    if response.lower() != 'yes':
+        print("\n✓ Exiting. Study the code in 'HACKER_IMPLEMENTATION_GUIDE.py'")
+        return
+    
+    response = input("\nConfirm you have WRITTEN authorization? (yes/no): ")
+    
+    if response.lower() != 'yes':
+        print("\n❌ Authorization required. Exiting.")
+        return
+    
+    print("\n[*] Starting advanced worm demonstration...\n")
+    
+    # Create and run worm
+    worm = RealNetworkWorm()
+    worm.run()
+
+
+def list_demos():
+    """Show available demonstrations"""
+    print("""
+╔═══════════════════════════════════════════════════════╗
+║  Available Demonstrations                            ║
+╚═══════════════════════════════════════════════════════╝
+
+1. command-execution
+   └─ Shows real SSH/WMI command execution techniques
+   └─ Safe: Only affects YOUR machine (shows notification)
+   └─ File: real_command_execution.py
+
+2. simple-worm
+   └─ Simple "Hello World" network worm
+   └─ Spreads via SSH, displays message on victims
+   └─ File: simple_hello_world_worm.py
+   └─ ⚠️  Requires: Isolated lab environment
+
+3. advanced-worm
+   └─ Complete network worm with all features
+   └─ Full attack chain: scan, exploit, persist, spread
+   └─ File: HACKER_IMPLEMENTATION_GUIDE.py
+   └─ ⚠️⚠️  Requires: Written authorization + isolated lab
+
+Usage:
+  python3 main.py --demo <name>
+
+Examples:
+  python3 main.py --demo command-execution
+  python3 main.py --demo simple-worm
+  python3 main.py --demo advanced-worm
+  python3 main.py --list
+""")
+
+
+def main():
+    """Main execution point with demo selection"""
+    parser = argparse.ArgumentParser(
+        description="Network Spreading Malware Demonstrations",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  # Show available demos
+  python3 main.py --list
+  
+  # Run command execution demo (safe)
+  python3 main.py --demo command-execution
+  
+  # Run simple worm demo (requires lab)
+  python3 main.py --demo simple-worm
+  
+  # Run advanced worm demo (requires authorization)
+  python3 main.py --demo advanced-worm
+        """
+    )
+    
+    parser.add_argument(
+        '--demo',
+        choices=['command-execution', 'simple-worm', 'advanced-worm'],
+        help='Select demonstration to run'
+    )
+    
+    parser.add_argument(
+        '--list',
+        action='store_true',
+        help='List all available demonstrations'
+    )
+    
+    args = parser.parse_args()
+    
+    try:
+        if args.list:
+            list_demos()
+        elif args.demo == 'command-execution':
+            demo_command_execution()
+        elif args.demo == 'simple-worm':
+            demo_simple_worm()
+        elif args.demo == 'advanced-worm':
+            demo_advanced_worm()
+        else:
+            # No arguments provided, show help
+            parser.print_help()
+            print("\n💡 Tip: Use --list to see all available demonstrations")
+    
+    except KeyboardInterrupt:
+        print("\n⚠️  Interrupted by user")
+        sys.exit(0)
+    except Exception as e:
+        print(f"\n❌ Error: {e}")
+        import traceback
+        traceback.print_exc()
+        sys.exit(1)
 
 
 if __name__ == "__main__":
-    try:
-        main()
-    except KeyboardInterrupt:
-        logger.warning("\n⚠️  Interrupted by user")
-        sys.exit(0)
-    except Exception as e:
-        logger.error(f"Unexpected error: {e}")
-        sys.exit(1)
+    main()
