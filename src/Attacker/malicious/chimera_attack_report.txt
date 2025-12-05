@@ -1,0 +1,20 @@
+
+        CHIMERA MALWARE - ATTACK REPORT
+        ================================
+        Timestamp: Fri Dec  5 13:22:41 2025
+        Target: CyberTest - vboxuser
+        
+        ATTACK METRICS:
+        - Files Encrypted: 1
+        - Documents Stolen: 3
+        - Persistence Established: Yes
+        - USB Propagation: Active
+        - C2 Communication: ACTIVE
+        
+        DECRYPTION KEY (SAVE THIS SAFE - COPY EXACTLY):
+        yYRlUqh5wtWI8EA_vkWNWDdu9AEUCZpjWaSfsIDPIpo=
+        
+        STATUS: Waiting for C2 commands...
+        
+        REMINDER: This is for educational purposes only!
+        

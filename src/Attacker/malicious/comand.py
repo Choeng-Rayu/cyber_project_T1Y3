@@ -766,4 +766,4 @@ if __name__ == "__main__":
     else:
         # Run the malware
         malware = CompleteChimeraMalware()
-        malware.execute_ malware()
+        malware.execute_malware()

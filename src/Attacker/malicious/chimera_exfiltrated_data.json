@@ -1,0 +1,46 @@
+{
+    "system_info": {
+        "computer_name": "CyberTest",
+        "username": "vboxuser",
+        "user_home": "C:\\Users\\vboxuser",
+        "windows_version": "sys.getwindowsversion(major=10, minor=0, build=19045, platform=2, service_pack='')",
+        "current_time": "Fri Dec  5 13:22:34 2025",
+        "malware_path": "C:\\Users\\vboxuser\\cyber_project\\cyber_project_T1Y3\\src\\Attacker\\malicious\\comand.py",
+        "processor_count": 6
+    },
+    "document_samples": {
+        "Fraction.pdf": {
+            "path": "C:\\Users\\vboxuser\\Documents\\Fraction.pdf",
+            "size": 43029,
+            "sample_hex": "255044462d312e370a25c3a4c3bcc3b6c39f0a322030206f626a0a3c3c2f4c656e6774682033203020522f46696c7465722f466c6174654465636f64653e3e0a73747265616d0a789ccd5bdd6be436107fdfbfc2cf856c66f461c9b018fc919416eee17a817b287d08975e29f4421b0eeedfaf644bb26c8d6e95cb8618c3127b138f6634f39bdfcc2870c4eadbe1ba7bfafaf7e7fb4f5fabfedd70f8af820a8ec074251b79644a565ae051d7583dfd79f8f853f578b831bf75fde1dffbc7d3e9faddf0cb5841dbf6",
+            "sample_text": "%PDF-1.7\n%äüöß\n2 0 obj\n<</Length 3 0 R/Filter/FlateDecode>>\nstream\nx[k6\u0010߿υlfaɰ\u0018\u0016z"
+        },
+        "READ_ME_FOR_DECRYPT.txt": {
+            "path": "C:\\Users\\vboxuser\\Desktop\\READ_ME_FOR_DECRYPT.txt",
+            "size": 811,
+            "sample_hex": "0d0a2020202020202020e29aa0efb88f20594f55522046494c45532048415645204245454e20454e435259505445442120e29aa0efb88f0d0a20202020202020200d0a2020202020202020576861742068617070656e65643f0d0a20202020202020203d3d3d3d3d3d3d3d3d3d3d3d3d3d0d0a2020202020202020596f757220696d706f7274616e742066696c65732068617665206265656e20656e637279707465642077697468206d696c69746172792d6772616465204145532d32353620656e637279707469",
+            "sample_text": "\r\n        ⚠️ YOUR FILES HAVE BEEN ENCRYPTED! ⚠️\r\n        \r\n        What happened?\r\n        ="
+        }
+    },
+    "network_info": {
+        "hostname": "CyberTest",
+        "local_ip": "10.0.2.15",
+        "ipconfig": "\r\nWindows IP Configuration\r\n\r\n\r\nEthernet adapter Ethernet:\r\n\r\n   Connection-specific DNS Suffix  . : \r\n   IPv6 Address. . . . . . . . . . . : fd17:625c:f037:2:c82a:bbe2:6b62:f58c\r\n   Temporary IPv6 Address. . . . . . : fd17:625c:f037:2:d004:db78:87eb:96f0\r\n   Link-local IPv6 Address . . . . . : fe80::4e77:cb5a:7034:1aed%8\r\n   IPv4 Address. . . . . . . . . . . : 10.0.2.15\r\n   Subnet Mask . . . . . . . . . . . : 255.255.255.0\r\n   Default Gateway . . . . . . . . . : fe80::2%8\r\n                                       10.0.2.2\r\n"
+    },
+    "browser_data": {
+        "chrome": {
+            "path": "C:\\Users\\vboxuser\\AppData\\Local\\Google\\Chrome",
+            "exists": true,
+            "size": 85389521
+        },
+        "edge": {
+            "path": "C:\\Users\\vboxuser\\AppData\\Local\\Microsoft\\Edge",
+            "exists": true,
+            "size": 792669594
+        },
+        "firefox": {
+            "exists": false
+        }
+    },
+    "timestamp": 1764915758.7339332
+}
