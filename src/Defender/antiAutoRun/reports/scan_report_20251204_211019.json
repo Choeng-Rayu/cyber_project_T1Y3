@@ -1,0 +1,111 @@
+{
+  "scan_time": "2025-12-04T21:10:19.695684",
+  "system_info": {
+    "hostname": "MENGHENG",
+    "username": "DELL"
+  },
+  "registry_scan": {
+    "scan_time": "2025-12-04T21:10:19.695642",
+    "total_entries": 17,
+    "total_threats": 7,
+    "high_risk": 1,
+    "medium_risk": 2,
+    "low_risk": 4,
+    "threats": [
+      {
+        "hive": "HKCU",
+        "key_path": "Software\\Microsoft\\Windows\\CurrentVersion\\Run",
+        "name": "OneDrive",
+        "value": "\"C:\\Users\\DELL\\AppData\\Local\\Microsoft\\OneDrive\\OneDrive.exe\" /background",
+        "threat_level": "LOW",
+        "reason": "Executable in AppData folder (verify manually)",
+        "detected_at": "2025-12-04T21:10:19.666180"
+      },
+      {
+        "hive": "HKCU",
+        "key_path": "Software\\Microsoft\\Windows\\CurrentVersion\\Run",
+        "name": "utweb",
+        "value": "\"C:\\Users\\DELL\\AppData\\Roaming\\uTorrent Web\\utweb.exe\" /MINIMIZED",
+        "threat_level": "LOW",
+        "reason": "Executable in AppData folder (verify manually)",
+        "detected_at": "2025-12-04T21:10:19.666321"
+      },
+      {
+        "hive": "HKCU",
+        "key_path": "Software\\Microsoft\\Windows\\CurrentVersion\\Run",
+        "name": "com.cron.electron",
+        "value": "C:\\Users\\DELL\\AppData\\Local\\Programs\\cron-web\\Notion Calendar.exe --process-start-args --from-login",
+        "threat_level": "MEDIUM",
+        "reason": "Executable not found: C:\\Users\\DELL\\AppData\\Local\\Programs\\cron-web\\Notion",
+        "detected_at": "2025-12-04T21:10:19.666394"
+      },
+      {
+        "hive": "HKCU",
+        "key_path": "Software\\Microsoft\\Windows\\CurrentVersion\\Run",
+        "name": "Figma Agent",
+        "value": "\"C:\\Users\\DELL\\AppData\\Local\\FigmaAgent\\figma_agent.exe\"",
+        "threat_level": "LOW",
+        "reason": "Executable in AppData folder (verify manually)",
+        "detected_at": "2025-12-04T21:10:19.666480"
+      },
+      {
+        "hive": "HKCU",
+        "key_path": "Software\\Microsoft\\Windows\\CurrentVersion\\Run",
+        "name": "com.squirrel.Postman-Agent.PostmanAgent",
+        "value": "C:\\Users\\DELL\\AppData\\Local\\Postman-Agent\\Postman Agent.exe",
+        "threat_level": "MEDIUM",
+        "reason": "Executable not found: C:\\Users\\DELL\\AppData\\Local\\Postman-Agent\\Postman",
+        "detected_at": "2025-12-04T21:10:19.666561"
+      },
+      {
+        "hive": "HKCU",
+        "key_path": "Software\\Microsoft\\Windows\\CurrentVersion\\Run",
+        "name": "Teams",
+        "value": "\"C:\\Users\\DELL\\AppData\\Local\\Microsoft\\WindowsApps\\MSTeams_8wekyb3d8bbwe\\ms-teams.exe\" msteams:system-initiated",
+        "threat_level": "LOW",
+        "reason": "Executable in AppData folder (verify manually)",
+        "detected_at": "2025-12-04T21:10:19.666776"
+      },
+      {
+        "hive": "HKLM",
+        "key_path": "Software\\Microsoft\\Windows\\CurrentVersion\\Run",
+        "name": "SecurityHealth",
+        "value": "%windir%\\system32\\SecurityHealthSystray.exe",
+        "threat_level": "HIGH",
+        "reason": "Known malicious entry name: SecurityHealth",
+        "detected_at": "2025-12-04T21:10:19.667094"
+      }
+    ]
+  },
+  "startup_scan": {
+    "scan_time": "2025-12-04T21:10:19.695671",
+    "total_files": 4,
+    "total_threats": 1,
+    "high_risk": 0,
+    "medium_risk": 0,
+    "low_risk": 1,
+    "threats": [
+      {
+        "filepath": "C:\\Users\\DELL\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Startup\\helloWorld.exe",
+        "filename": "helloWorld.exe",
+        "threat_level": "LOW",
+        "reason": "Recently added file (< 24 hours): helloWorld.exe",
+        "file_hash": "821d8d811f94ae6e41a90a1577615b11759535b8bd9a48070dcbecb1ac25098a",
+        "file_size": 11100045,
+        "detected_at": "2025-12-04T21:10:19.685162"
+      }
+    ]
+  },
+  "removal_summary": {
+    "total_threats": 8,
+    "removed": 2,
+    "failed": 1,
+    "skipped_low_risk": 5
+  },
+  "summary": {
+    "total_threats": 8,
+    "high_risk": 1,
+    "medium_risk": 2,
+    "low_risk": 5
+  }
+}

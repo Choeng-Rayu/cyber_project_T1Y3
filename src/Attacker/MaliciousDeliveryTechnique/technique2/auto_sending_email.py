@@ -3,6 +3,8 @@ import ssl
 import time
 import csv
 import os
+import subprocess
+import re
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 
@@ -10,7 +12,62 @@ from email.mime.multipart import MIMEMultipart
 CSV_FILE = 'email_dataset.csv'
 SENDER_EMAIL = "yo4tube.company168@gmail.com"
 SENDER_PASSWORD = "nabzxqwuyngaqvym"
-DOWNLOAD_LINK = "http://localhost:3000/download"  # Your Photoshop website download link
+
+# =====================================================
+# NGROK URL CONFIGURATION
+# =====================================================
+# Option 1: Set your ngrok URL manually here
+# NGROK_URL = "https://abc123.ngrok-free.app"
+
+# Option 2: Auto-detect from ngrok API (if ngrok is running)
+NGROK_URL = None  # Will be auto-detected
+
+def get_ngrok_url():
+    """Try to automatically get the ngrok URL from the local API."""
+    try:
+        import urllib.request
+        import json
+        # ngrok exposes an API at localhost:4040
+        response = urllib.request.urlopen("http://127.0.0.1:4040/api/tunnels", timeout=3)
+        data = json.loads(response.read().decode())
+        for tunnel in data.get("tunnels", []):
+            if tunnel.get("proto") == "https":
+                return tunnel.get("public_url")
+        # If no https, try http
+        for tunnel in data.get("tunnels", []):
+            return tunnel.get("public_url")
+    except Exception as e:
+        pass
+    return None
+
+# Try to auto-detect ngrok URL
+if NGROK_URL is None:
+    print("🔍 Attempting to auto-detect ngrok URL...")
+    NGROK_URL = get_ngrok_url()
+    
+if NGROK_URL:
+    print(f"✅ Detected ngrok URL: {NGROK_URL}")
+    DOWNLOAD_LINK = f"{NGROK_URL}/download"
+else:
+    print("⚠️  Could not auto-detect ngrok URL!")
+    print()
+    print("   Please enter your ngrok URL manually.")
+    print("   Example: https://abc123.ngrok-free.app")
+    print()
+    manual_url = input("Enter ngrok URL (or press Enter to use localhost): ").strip()
+    if manual_url:
+        if not manual_url.startswith("http"):
+            manual_url = "https://" + manual_url
+        NGROK_URL = manual_url
+        DOWNLOAD_LINK = f"{NGROK_URL}/download"
+    else:
+        DOWNLOAD_LINK = "http://localhost:3000/download"
+        print("   Using localhost (only works on same machine)")
+
+print(f"📥 Download link: {DOWNLOAD_LINK}")
+print()
+# =====================================================
+
 SUPPORT_MESSAGE = "For support, reply to this email or contact us at support@adobe-students.com"
 YOUR_NAME = "Adobe Team"  # Your name/team name
 
