@@ -1,0 +1,930 @@
+{
+    "tokens": {
+        "data": [],
+        "total_count": 0
+    },
+    "cookies": {
+        "data": [
+            {
+                "host": ".adnxs.com",
+                "name": "anj",
+                "path": "/",
+                "value": "[decryption_failed]",
+                "browser": "Chrome",
+                "expires": "13415980323599465",
+                "is_secure": true,
+                "is_httponly": true
+            },
+            {
+                "host": ".adnxs.com",
+                "name": "uuid2",
+                "path": "/",
+                "value": "[decryption_failed]",
+                "browser": "Chrome",
+                "expires": "13415980323599465",
+                "is_secure": true,
+                "is_httponly": true
+            },
+            {
+                "host": ".adnxs.com",
+                "name": "XANDR_PANID",
+                "path": "/",
+                "value": "[decryption_failed]",
+                "browser": "Chrome",
+                "expires": "13415980323599465",
+                "is_secure": true,
+                "is_httponly": false
+            },
+            {
+                "host": ".alza.cz",
+                "name": "ALWCS",
+                "path": "/",
+                "value": "[decryption_failed]",
+                "browser": "Chrome",
+                "expires": "13428510354938532",
+                "is_secure": false,
+                "is_httponly": false
+            },
+            {
+                "host": ".alza.cz",
+                "name": "CBARIH",
+                "path": "/",
+                "value": "[decryption_failed]",
+                "browser": "Chrome",
+                "expires": "13428510354938532",
+                "is_secure": false,
+                "is_httponly": false
+            },
+            {
+                "host": ".alza.cz",
+                "name": "VST",
+                "path": "/",
+                "value": "[decryption_failed]",
+                "browser": "Chrome",
+                "expires": "13428510322736046",
+                "is_secure": true,
+                "is_httponly": true
+            },
+            {
+                "host": ".alza.cz",
+                "name": "VZTX",
+                "path": "/",
+                "value": "[decryption_failed]",
+                "browser": "Chrome",
+                "expires": "13428510322736046",
+                "is_secure": true,
+                "is_httponly": true
+            },
+            {
+                "host": ".alza.cz",
+                "name": "__cf_bm",
+                "path": "/",
+                "value": "[decryption_failed]",
+                "browser": "Chrome",
+                "expires": "13408206114394465",
+                "is_secure": true,
+                "is_httponly": true
+            },
+            {
+                "host": ".alza.cz",
+                "name": "_clck",
+                "path": "/",
+                "value": "[decryption_failed]",
+                "browser": "Chrome",
+                "expires": "13439740320000000",
+                "is_secure": false,
+                "is_httponly": false
+            },
+            {
+                "host": ".alza.cz",
+                "name": "_clsk",
+                "path": "/",
+                "value": "[decryption_failed]",
+                "browser": "Chrome",
+                "expires": "13408290777000000",
+                "is_secure": false,
+                "is_httponly": false
+            },
+            {
+                "host": ".alza.cz",
+                "name": "_fbp",
+                "path": "/",
+                "value": "[decryption_failed]",
+                "browser": "Chrome",
+                "expires": "13415980378000000",
+                "is_secure": false,
+                "is_httponly": false
+            },
+            {
+                "host": ".alza.cz",
+                "name": "_ga",
+                "path": "/",
+                "value": "[decryption_failed]",
+                "browser": "Chrome",
+                "expires": "13442764378793520",
+                "is_secure": false,
+                "is_httponly": false
+            },
+            {
+                "host": ".alza.cz",
+                "name": "_ga_Y02WXWM63K",
+                "path": "/",
+                "value": "[decryption_failed]",
+                "browser": "Chrome",
+                "expires": "13442764387500520",
+                "is_secure": false,
+                "is_httponly": false
+            },
+            {
+                "host": ".alza.cz",
+                "name": "_gcl_au",
+                "path": "/",
+                "value": "[decryption_failed]",
+                "browser": "Chrome",
+                "expires": "13415980323000000",
+                "is_secure": false,
+                "is_httponly": false
+            },
+            {
+                "host": ".alza.cz",
+                "name": "_hjSessionUser_868435",
+                "path": "/",
+                "value": "[decryption_failed]",
+                "browser": "Chrome",
+                "expires": "13439740378000000",
+                "is_secure": true,
+                "is_httponly": false
+            },
+            {
+                "host": ".alza.cz",
+                "name": "_hjSession_868435",
+                "path": "/",
+                "value": "[decryption_failed]",
+                "browser": "Chrome",
+                "expires": "13408206123000000",
+                "is_secure": true,
+                "is_httponly": false
+            },
+            {
+                "host": ".alza.cz",
+                "name": "_uetsid",
+                "path": "/",
+                "value": "[decryption_failed]",
+                "browser": "Chrome",
+                "expires": "13408290778000000",
+                "is_secure": false,
+                "is_httponly": false
+            },
+            {
+                "host": ".alza.cz",
+                "name": "_uetvid",
+                "path": "/",
+                "value": "[decryption_failed]",
+                "browser": "Chrome",
+                "expires": "13441900378000000",
+                "is_secure": false,
+                "is_httponly": false
+            },
+            {
+                "host": ".alza.cz",
+                "name": "sid",
+                "path": "/",
+                "value": "[decryption_failed]",
+                "browser": "Chrome",
+                "expires": "13410796381000000",
+                "is_secure": false,
+                "is_httponly": false
+            },
+            {
+                "host": ".alza.cz",
+                "name": "udid",
+                "path": "/",
+                "value": "[decryption_failed]",
+                "browser": "Chrome",
+                "expires": "13410796323000000",
+                "is_secure": true,
+                "is_httponly": false
+            },
+            {
+                "host": ".bing.com",
+                "name": "MUID",
+                "path": "/",
+                "value": "[decryption_failed]",
+                "browser": "Chrome",
+                "expires": "13430670356008532",
+                "is_secure": true,
+                "is_httponly": false
+            },
+            {
+                "host": ".creativecdn.com",
+                "name": "g",
+                "path": "/",
+                "value": "[decryption_failed]",
+                "browser": "Chrome",
+                "expires": "13439740323441465",
+                "is_secure": true,
+                "is_httponly": false
+            },
+            {
+                "host": ".creativecdn.com",
+                "name": "c",
+                "path": "/",
+                "value": "[decryption_failed]",
+                "browser": "Chrome",
+                "expires": "13439740323441465",
+                "is_secure": true,
+                "is_httponly": false
+            },
+            {
+                "host": ".creativecdn.com",
+                "name": "ts",
+                "path": "/",
+                "value": "[decryption_failed]",
+                "browser": "Chrome",
+                "expires": "13439740323441465",
+                "is_secure": true,
+                "is_httponly": false
+            },
+            {
+                "host": ".doubleclick.net",
+                "name": "IDE",
+                "path": "/",
+                "value": "[decryption_failed]",
+                "browser": "Chrome",
+                "expires": "13430670356295465",
+                "is_secure": true,
+                "is_httponly": true
+            },
+            {
+                "host": ".doubleclick.net",
+                "name": "receive-cookie-deprecation",
+                "path": "/",
+                "value": "[decryption_failed]",
+                "browser": "Chrome",
+                "expires": "13412526355234532",
+                "is_secure": true,
+                "is_httponly": true
+            },
+            {
+                "host": ".google.com",
+                "name": "AEC",
+                "path": "/",
+                "value": "[decryption_failed]",
+                "browser": "Chrome",
+                "expires": "13412526368256532",
+                "is_secure": true,
+                "is_httponly": true
+            },
+            {
+                "host": ".google.com",
+                "name": "NID",
+                "path": "/",
+                "value": "[decryption_failed]",
+                "browser": "Chrome",
+                "expires": "13424015507338465",
+                "is_secure": true,
+                "is_httponly": true
+            },
+            {
+                "host": ".google.com",
+                "name": "__Secure-ENID",
+                "path": "/",
+                "value": "[decryption_failed]",
+                "browser": "Chrome",
+                "expires": "13442391006745465",
+                "is_secure": true,
+                "is_httponly": true
+            },
+            {
+                "host": ".reddit.com",
+                "name": "csv",
+                "path": "/",
+                "value": "[decryption_failed]",
+                "browser": "Chrome",
+                "expires": "13431534310496046",
+                "is_secure": true,
+                "is_httponly": false
+            },
+            {
+                "host": ".reddit.com",
+                "name": "edgebucket",
+                "path": "/",
+                "value": "[decryption_failed]",
+                "browser": "Chrome",
+                "expires": "13431534310496046",
+                "is_secure": true,
+                "is_httponly": false
+            },
+            {
+                "host": ".reddit.com",
+                "name": "loid",
+                "path": "/",
+                "value": "[decryption_failed]",
+                "browser": "Chrome",
+                "expires": "13442764312558465",
+                "is_secure": true,
+                "is_httponly": false
+            },
+            {
+                "host": ".reddit.com",
+                "name": "token_v2",
+                "path": "/",
+                "value": "[decryption_failed]",
+                "browser": "Chrome",
+                "expires": "13408290712558465",
+                "is_secure": true,
+                "is_httponly": true
+            },
+            {
+                "host": ".seznam.cz",
+                "name": "sid",
+                "path": "/",
+                "value": "[decryption_failed]",
+                "browser": "Chrome",
+                "expires": "13410799982483520",
+                "is_secure": true,
+                "is_httponly": false
+            },
+            {
+                "host": ".seznamakce.cz",
+                "name": "cmphitorder",
+                "path": "/",
+                "value": "[decryption_failed]",
+                "browser": "Chrome",
+                "expires": "13439740340000000",
+                "is_secure": true,
+                "is_httponly": false
+            },
+            {
+                "host": ".seznamakce.cz",
+                "name": "cmpreferrer",
+                "path": "/",
+                "value": "[decryption_failed]",
+                "browser": "Chrome",
+                "expires": "13439740340000000",
+                "is_secure": true,
+                "is_httponly": false
+            },
+            {
+                "host": ".seznamakce.cz",
+                "name": "cmpsessid",
+                "path": "/",
+                "value": "[decryption_failed]",
+                "browser": "Chrome",
+                "expires": "13439740340000000",
+                "is_secure": true,
+                "is_httponly": false
+            },
+            {
+                "host": ".udmserve.net",
+                "name": "dt",
+                "path": "/",
+                "value": "[decryption_failed]",
+                "browser": "Chrome",
+                "expires": "13439740379681520",
+                "is_secure": true,
+                "is_httponly": false
+            },
+            {
+                "host": ".udmserve.net",
+                "name": "rtbh",
+                "path": "/",
+                "value": "[decryption_failed]",
+                "browser": "Chrome",
+                "expires": "13415980379681520",
+                "is_secure": true,
+                "is_httponly": false
+            },
+            {
+                "host": ".udmserve.net",
+                "name": "udmts",
+                "path": "/",
+                "value": "[decryption_failed]",
+                "browser": "Chrome",
+                "expires": "13439740379681520",
+                "is_secure": true,
+                "is_httponly": false
+            },
+            {
+                "host": ".workspace.google.com",
+                "name": "__utma",
+                "path": "/",
+                "value": "[decryption_failed]",
+                "browser": "Chrome",
+                "expires": "13408207922000000",
+                "is_secure": false,
+                "is_httponly": false
+            },
+            {
+                "host": ".workspace.google.com",
+                "name": "__utma",
+                "path": "/intl/en-US/gmail/",
+                "value": "[decryption_failed]",
+                "browser": "Chrome",
+                "expires": "13442764320856465",
+                "is_secure": false,
+                "is_httponly": false
+            },
+            {
+                "host": ".workspace.google.com",
+                "name": "__utmb",
+                "path": "/",
+                "value": "[decryption_failed]",
+                "browser": "Chrome",
+                "expires": "13408207922000000",
+                "is_secure": false,
+                "is_httponly": false
+            },
+            {
+                "host": ".workspace.google.com",
+                "name": "__utmb",
+                "path": "/intl/en-US/gmail/",
+                "value": "[decryption_failed]",
+                "browser": "Chrome",
+                "expires": "13408206120000000",
+                "is_secure": false,
+                "is_httponly": false
+            },
+            {
+                "host": ".workspace.google.com",
+                "name": "__utmc",
+                "path": "/",
+                "value": "[decryption_failed]",
+                "browser": "Chrome",
+                "expires": "13408207922000000",
+                "is_secure": false,
+                "is_httponly": false
+            },
+            {
+                "host": ".workspace.google.com",
+                "name": "__utmt_UA-18073-1",
+                "path": "/",
+                "value": "[decryption_failed]",
+                "browser": "Chrome",
+                "expires": "13408204921000000",
+                "is_secure": false,
+                "is_httponly": false
+            },
+            {
+                "host": ".workspace.google.com",
+                "name": "__utmz",
+                "path": "/",
+                "value": "[decryption_failed]",
+                "browser": "Chrome",
+                "expires": "13408207922000000",
+                "is_secure": false,
+                "is_httponly": false
+            },
+            {
+                "host": ".workspace.google.com",
+                "name": "__utmz",
+                "path": "/intl/en-US/gmail/",
+                "value": "[decryption_failed]",
+                "browser": "Chrome",
+                "expires": "13423972320000000",
+                "is_secure": false,
+                "is_httponly": false
+            },
+            {
+                "host": ".workspace.google.com",
+                "name": "_ga",
+                "path": "/",
+                "value": "[decryption_failed]",
+                "browser": "Chrome",
+                "expires": "13408207922000000",
+                "is_secure": false,
+                "is_httponly": false
+            },
+            {
+                "host": ".workspace.google.com",
+                "name": "_ga_FWCBRW1RY8",
+                "path": "/",
+                "value": "[decryption_failed]",
+                "browser": "Chrome",
+                "expires": "13442764372429520",
+                "is_secure": false,
+                "is_httponly": false
+            },
+            {
+                "host": ".youtube.com",
+                "name": "GPS",
+                "path": "/",
+                "value": "[decryption_failed]",
+                "browser": "Chrome",
+                "expires": "13408206111159465",
+                "is_secure": true,
+                "is_httponly": true
+            },
+            {
+                "host": ".youtube.com",
+                "name": "PREF",
+                "path": "/",
+                "value": "[decryption_failed]",
+                "browser": "Chrome",
+                "expires": "13442764318536465",
+                "is_secure": true,
+                "is_httponly": false
+            },
+            {
+                "host": ".youtube.com",
+                "name": "SOCS",
+                "path": "/",
+                "value": "[decryption_failed]",
+                "browser": "Chrome",
+                "expires": "13431102371834532",
+                "is_secure": true,
+                "is_httponly": false
+            },
+            {
+                "host": ".youtube.com",
+                "name": "VISITOR_INFO1_LIVE",
+                "path": "/",
+                "value": "[decryption_failed]",
+                "browser": "Chrome",
+                "expires": "13412526371834532",
+                "is_secure": true,
+                "is_httponly": true
+            },
+            {
+                "host": ".youtube.com",
+                "name": "VISITOR_INFO1_LIVE",
+                "path": "/",
+                "value": "[decryption_failed]",
+                "browser": "Chrome",
+                "expires": "13423756316065465",
+                "is_secure": true,
+                "is_httponly": true
+            },
+            {
+                "host": ".youtube.com",
+                "name": "VISITOR_PRIVACY_METADATA",
+                "path": "/",
+                "value": "[decryption_failed]",
+                "browser": "Chrome",
+                "expires": "13423756316066465",
+                "is_secure": true,
+                "is_httponly": true
+            },
+            {
+                "host": ".youtube.com",
+                "name": "__Secure-ROLLOUT_TOKEN",
+                "path": "/",
+                "value": "[decryption_failed]",
+                "browser": "Chrome",
+                "expires": "13423756311169465",
+                "is_secure": true,
+                "is_httponly": true
+            },
+            {
+                "host": "accounts.google.com",
+                "name": "__Host-GAPS",
+                "path": "/",
+                "value": "[decryption_failed]",
+                "browser": "Chrome",
+                "expires": "13442764313338465",
+                "is_secure": true,
+                "is_httponly": true
+            },
+            {
+                "host": "cmp.seznamakce.cz",
+                "name": "sznlbr",
+                "path": "/",
+                "value": "[decryption_failed]",
+                "browser": "Chrome",
+                "expires": "13408290740468465",
+                "is_secure": true,
+                "is_httponly": true
+            },
+            {
+                "host": "www.alza.cz",
+                "name": ".AspNetCore.Culture",
+                "path": "/",
+                "value": "[decryption_failed]",
+                "browser": "Chrome",
+                "expires": "13428510322848046",
+                "is_secure": false,
+                "is_httponly": false
+            },
+            {
+                "host": "www.alza.cz",
+                "name": "ALZALSC",
+                "path": "/",
+                "value": "[decryption_failed]",
+                "browser": "Chrome",
+                "expires": "13428510323000000",
+                "is_secure": false,
+                "is_httponly": false
+            },
+            {
+                "host": "www.alza.cz",
+                "name": "CriticalCSS",
+                "path": "/",
+                "value": "[decryption_failed]",
+                "browser": "Chrome",
+                "expires": "13408809114394465",
+                "is_secure": false,
+                "is_httponly": false
+            },
+            {
+                "host": "www.alza.cz",
+                "name": "PVCFLP",
+                "path": "/",
+                "value": "[decryption_failed]",
+                "browser": "Chrome",
+                "expires": "13439740376803520",
+                "is_secure": false,
+                "is_httponly": false
+            },
+            {
+                "host": "www.alza.cz",
+                "name": "__rtbh.lid",
+                "path": "/",
+                "value": "[decryption_failed]",
+                "browser": "Chrome",
+                "expires": "13439740378000000",
+                "is_secure": true,
+                "is_httponly": false
+            },
+            {
+                "host": "www.alza.cz",
+                "name": "__rtbh.uid",
+                "path": "/",
+                "value": "[decryption_failed]",
+                "browser": "Chrome",
+                "expires": "13439740378000000",
+                "is_secure": true,
+                "is_httponly": false
+            },
+            {
+                "host": "www.alza.cz",
+                "name": "g_state",
+                "path": "/",
+                "value": "[decryption_failed]",
+                "browser": "Chrome",
+                "expires": "13423756377000000",
+                "is_secure": false,
+                "is_httponly": false
+            },
+            {
+                "host": "www.alza.cz",
+                "name": "lb_id",
+                "path": "/",
+                "value": "[decryption_failed]",
+                "browser": "Chrome",
+                "expires": "13408211582829520",
+                "is_secure": false,
+                "is_httponly": true
+            },
+            {
+                "host": "www.alza.cz",
+                "name": "lux_uid",
+                "path": "/",
+                "value": "[decryption_failed]",
+                "browser": "Chrome",
+                "expires": "13408206176869520",
+                "is_secure": false,
+                "is_httponly": false
+            },
+            {
+                "host": "www.google.com",
+                "name": "_GRECAPTCHA",
+                "path": "/recaptcha",
+                "value": "[decryption_failed]",
+                "browser": "Chrome",
+                "expires": "13423756322113465",
+                "is_secure": true,
+                "is_httponly": true
+            },
+            {
+                "host": "www.reddit.com",
+                "name": "eu_cookie",
+                "path": "/",
+                "value": "[decryption_failed]",
+                "browser": "Chrome",
+                "expires": "13431534318053046",
+                "is_secure": false,
+                "is_httponly": false
+            },
+            {
+                "host": "www.reddit.com",
+                "name": "g_state",
+                "path": "/",
+                "value": "[decryption_failed]",
+                "browser": "Chrome",
+                "expires": "13423756314000000",
+                "is_secure": false,
+                "is_httponly": false
+            }
+        ],
+        "total_count": 71
+    },
+    "history": {
+        "data": [
+            {
+                "url": "https://www.alza.cz/pocitace-a-notebooky",
+                "title": "Počítače a notebooky | Alza.cz",
+                "browser": "Chrome",
+                "last_visit": "13408204376819281",
+                "visit_count": 1
+            },
+            {
+                "url": "https://alb.reddit.com/cr?za=n10DwpBnP6ic1Kxt7QGVmMBhcp2nQgHzVJO-jUKGsl71mgTQlceC0nrfVF6qdUYXDOAGdTwbk_uVwsjUI6PApdnVAGskzv32Fsnt5Ib-3650juendGzQyqwUuSTh2LL6h03UcYhAmFrrqA1DhU-EG5MvTtTQFUS_Do8ri9rJ-gguh2vYeBh-OfR-NVCPtxRCaOglhtciWZbatQloaq1xq1Fbqrtz1huseXj7X6WCE35lOHJ_ciF7AFGy8o2wu9OgsG30PwNCd-vjN9sAu5wpBsVywnJLUTtFy9AxLc0yN7sO2E4Uy_Euds9JWa2HTviyud_qIuMaBU69tagzs_MXSMTWHqrDvbgn530izZofRTAhQ_FuzlmIs0wM8zT1QxnBlMTnQzK780q-ifxZ_2r5AgEl4s0oOtAKNzWtERAI-EC7wxKdTh6K0WLcqDZr4WOBluZapJry1uyLbYjaU0nkfo14VAeX2cmoJphbZI2apLbjw-2l76eE08pDjI0HgRPnbMkxe3iku84Us00LbUrnHkIt-ThBQeIIW17-Eix5bk73ZkBPHhMD9i81h0sXiOGvgwO-1r25oKZ_rwGB5irsIW_vpGl6v4_bN7Zg0QxwHNmlIG7DDxs-AMgUvUr0x7aqAcY_jxATnFG6CjjIAYZDYpldiLxWytFMW8kv-XYa33trxWSl7CMXuAtP1fbl&zp=jFQlIWxKfAMxH7WKMDl5SyJYzI2afobsIJUdwR0QPf4Xu_no2OTbuei_FIy7rRBv8VFLAYBkg5qUF92yn6zsOytP8FH04ggcqktWyHppHIDYcn0ONT05s3YaxxKenweuL-q9P_fkhofh0s9wv39qvHIXY-VuhoATXqO7Avb_5-yacPlEzYy-WfFwkl5DPvovDkT5gwpumQTKw9Pk5qF0SzUjHtegf1cDVFlvur7e-MVAZIR_dJMfgqL-pWoNi58LaE7DYEPQKSqOrNW4qEQZ4i879hVHV3cNp8_442rc4Y-T4voW8sM_jzimAluUCVv4WntFjoduM-H0iCo3TshbxClLqUpmYKCv5Ndd1lc_ruoAUtOO3QpfzhPu4SBsV47cjJRBibWZLWzKYHVSMqrVBc7eY1UZrbSVc7wjKGj7lY7AGgXEAIDy6MNfG9Rh5FHrJ8S0PLBdVPBTxZKwkvD8U33imzWighUsfkcAAvesO6Gt8wl6NKiYUvLIaFjrcw218CPj0g&a=6053&b=3764&be=0&c=0&d=6053&e=3764&ea=3886&eb=0&f=0&r=2&g=0&i=1763730733524&t=1763730739577&o=1&q=1&h=773&w=732&sh=900&sw=1440",
+                "title": "Soutěž v kompetitivním programování – Seznam.cz",
+                "browser": "Chrome",
+                "last_visit": "13408204339869964",
+                "visit_count": 1
+            },
+            {
+                "url": "https://www.seznamakce.cz/soutez-v-kompetitivnim-programovani/?rdt_cid=5090739025883505540&utm_campaign=2025_11_03_hrm_obsah_rd_photo_traffic_programovaci-soutez&utm_content=2025_11_03_hrm_programovaci-soutez&utm_medium=organic&utm_source=rd",
+                "title": "Soutěž v kompetitivním programování – Seznam.cz",
+                "browser": "Chrome",
+                "last_visit": "13408204339869964",
+                "visit_count": 1
+            },
+            {
+                "url": "https://www.alza.cz/",
+                "title": "Alza.cz – rychlý a pohodlný nákup odkudkoliv | Alza.cz",
+                "browser": "Chrome",
+                "last_visit": "13408204314406964",
+                "visit_count": 1
+            },
+            {
+                "url": "http://gmail.com/",
+                "title": "Gmail: Private and secure email at no cost | Google Workspace",
+                "browser": "Chrome",
+                "last_visit": "13408204313508964",
+                "visit_count": 1
+            },
+            {
+                "url": "https://gmail.com/",
+                "title": "Gmail: Private and secure email at no cost | Google Workspace",
+                "browser": "Chrome",
+                "last_visit": "13408204313508964",
+                "visit_count": 1
+            },
+            {
+                "url": "https://mail.google.com/mail/u/0/",
+                "title": "Gmail: Private and secure email at no cost | Google Workspace",
+                "browser": "Chrome",
+                "last_visit": "13408204313508964",
+                "visit_count": 1
+            },
+            {
+                "url": "https://accounts.google.com/ServiceLogin?service=mail&passive=1209600&osid=1&continue=https://mail.google.com/mail/u/0/&followup=https://mail.google.com/mail/u/0/&emr=1",
+                "title": "Gmail: Private and secure email at no cost | Google Workspace",
+                "browser": "Chrome",
+                "last_visit": "13408204313508964",
+                "visit_count": 1
+            },
+            {
+                "url": "https://workspace.google.com/intl/en-US/gmail/",
+                "title": "Gmail: Private and secure email at no cost | Google Workspace",
+                "browser": "Chrome",
+                "last_visit": "13408204313508964",
+                "visit_count": 1
+            },
+            {
+                "url": "https://reddit.com/",
+                "title": "Reddit - The heart of the internet",
+                "browser": "Chrome",
+                "last_visit": "13408204312572964",
+                "visit_count": 1
+            },
+            {
+                "url": "https://www.reddit.com/",
+                "title": "Reddit - The heart of the internet",
+                "browser": "Chrome",
+                "last_visit": "13408204312572964",
+                "visit_count": 1
+            },
+            {
+                "url": "https://www.youtube.com/",
+                "title": "YouTube",
+                "browser": "Chrome",
+                "last_visit": "13408204311380964",
+                "visit_count": 1
+            },
+            {
+                "url": "https://www.youtube.com/",
+                "title": "YouTube",
+                "browser": "Edge",
+                "last_visit": "13408204459730877",
+                "visit_count": 2
+            },
+            {
+                "url": "https://www.wikipedia.org/",
+                "title": "Wikipedia",
+                "browser": "Edge",
+                "last_visit": "13408204452455813",
+                "visit_count": 1
+            },
+            {
+                "url": "https://www.bing.com/search?filters=ufn%3a%22Wikipedia%22+sid%3a%223b30aeb1-32ee-2dbf-e322-4e7c55beee2b%22&qs=MB&pq=wiki&sk=CSYN1&sc=15-4&pglt=43&q=wikipedia&cvid=9cdae71aa7ca47aaa16f2df91bce2e1e&gs_lcrp=EgRlZGdlKgcIABAuGPkHMgcIABAuGPkHMgYIARBFGDkyBggCEAAYQDIGCAMQABhAMgYIBBAuGEAyBggFEC4YQDIGCAYQABhAMgYIBxAuGEAyBggIEAAYQNIBCDIyMjhqMGoxqAIAsAIA&FORM=ANNTA1&PC=U531",
+                "title": "wikipedia - Search",
+                "browser": "Edge",
+                "last_visit": "13408204452283813",
+                "visit_count": 2
+            },
+            {
+                "url": "https://www.bing.com/ck/a?!&&p=fdf0eabb04216f7f305e931f76475fe09d75a3c5dd1ee0d16991d5bca2c1a86bJmltdHM9MTc2MzY4MzIwMA&ptn=3&ver=2&hsh=4&fclid=22af01c6-3b8c-60c9-24ab-17ef3ace61dc&psq=wikipedia&u=a1aHR0cHM6Ly93d3cud2lraXBlZGlhLm9yZy8&ntb=1",
+                "title": "",
+                "browser": "Edge",
+                "last_visit": "13408204452275813",
+                "visit_count": 1
+            },
+            {
+                "url": "http://alza.cz/",
+                "title": "Alza.cz – rychlý a pohodlný nákup odkudkoliv | Alza.cz",
+                "browser": "Edge",
+                "last_visit": "13408204416733743",
+                "visit_count": 1
+            },
+            {
+                "url": "https://alza.cz/",
+                "title": "Alza.cz – rychlý a pohodlný nákup odkudkoliv | Alza.cz",
+                "browser": "Edge",
+                "last_visit": "13408204416733743",
+                "visit_count": 1
+            },
+            {
+                "url": "https://www.alza.cz/",
+                "title": "Alza.cz – rychlý a pohodlný nákup odkudkoliv | Alza.cz",
+                "browser": "Edge",
+                "last_visit": "13408204416733743",
+                "visit_count": 1
+            },
+            {
+                "url": "https://reddit.com/",
+                "title": "Reddit - The heart of the internet",
+                "browser": "Edge",
+                "last_visit": "13408204406900192",
+                "visit_count": 1
+            },
+            {
+                "url": "https://www.reddit.com/",
+                "title": "Reddit - The heart of the internet",
+                "browser": "Edge",
+                "last_visit": "13408204406900192",
+                "visit_count": 1
+            },
+            {
+                "url": "https://www.reddit.com/?rdt=54182",
+                "title": "Reddit - The heart of the internet",
+                "browser": "Edge",
+                "last_visit": "13408204406900192",
+                "visit_count": 1
+            }
+        ],
+        "total_count": 22
+    },
+    "passwords": {
+        "data": [
+            {
+                "browser": "Chrome",
+                "password": "[decryption_failed]",
+                "username": "johnsmith25",
+                "action_url": "",
+                "origin_url": "https://accounts.google.com/",
+                "date_created": "13396974423001739",
+                "date_last_used": "0"
+            },
+            {
+                "browser": "Chrome",
+                "password": "[decryption_failed]",
+                "username": "_big_johny_77",
+                "action_url": "",
+                "origin_url": "https://www.reddit.com/",
+                "date_created": "13396974519046758",
+                "date_last_used": "0"
+            },
+            {
+                "browser": "Edge",
+                "password": "[no_key]",
+                "username": "johnsmith25",
+                "action_url": "",
+                "origin_url": "https://accounts.google.com/",
+                "date_created": "13396974704044081",
+                "date_last_used": "13396974782544923"
+            },
+            {
+                "browser": "Edge",
+                "password": "[no_key]",
+                "username": "_big_johny_77",
+                "action_url": "",
+                "origin_url": "https://reddit.com/",
+                "date_created": "13396974751885456",
+                "date_last_used": "0"
+            }
+        ],
+        "total_count": 4
+    },
+    "system_info": {
+        "os": "Windows",
+        "hostname": "JOHN-PC",
+        "username": "John",
+        "timestamp": "2025-12-03T10:18:21.035053",
+        "os_version": "10.0.19045",
+        "architecture": "64bit"
+    },
+    "extraction_timestamp": "2025-12-03T10:18:23.378799"
+}
