@@ -1,0 +1,83 @@
+{
+  "scan_time": "2025-12-06T13:57:24.578018",
+  "system_info": {
+    "hostname": "MENGHENG",
+    "username": "DELL"
+  },
+  "registry_scan": {
+    "scan_time": "2025-12-06T13:57:24.577992",
+    "total_entries": 14,
+    "total_threats": 5,
+    "high_risk": 1,
+    "medium_risk": 0,
+    "low_risk": 4,
+    "threats": [
+      {
+        "hive": "HKCU",
+        "key_path": "Software\\Microsoft\\Windows\\CurrentVersion\\Run",
+        "name": "OneDrive",
+        "value": "\"C:\\Users\\DELL\\AppData\\Local\\Microsoft\\OneDrive\\OneDrive.exe\" /background",
+        "threat_level": "LOW",
+        "reason": "Executable in AppData folder (verify manually)",
+        "detected_at": "2025-12-06T13:57:24.569582"
+      },
+      {
+        "hive": "HKCU",
+        "key_path": "Software\\Microsoft\\Windows\\CurrentVersion\\Run",
+        "name": "utweb",
+        "value": "\"C:\\Users\\DELL\\AppData\\Roaming\\uTorrent Web\\utweb.exe\" /MINIMIZED",
+        "threat_level": "LOW",
+        "reason": "Executable in AppData folder (verify manually)",
+        "detected_at": "2025-12-06T13:57:24.569679"
+      },
+      {
+        "hive": "HKCU",
+        "key_path": "Software\\Microsoft\\Windows\\CurrentVersion\\Run",
+        "name": "Figma Agent",
+        "value": "\"C:\\Users\\DELL\\AppData\\Local\\FigmaAgent\\figma_agent.exe\"",
+        "threat_level": "LOW",
+        "reason": "Executable in AppData folder (verify manually)",
+        "detected_at": "2025-12-06T13:57:24.569778"
+      },
+      {
+        "hive": "HKCU",
+        "key_path": "Software\\Microsoft\\Windows\\CurrentVersion\\Run",
+        "name": "Teams",
+        "value": "\"C:\\Users\\DELL\\AppData\\Local\\Microsoft\\WindowsApps\\MSTeams_8wekyb3d8bbwe\\ms-teams.exe\" msteams:system-initiated",
+        "threat_level": "LOW",
+        "reason": "Executable in AppData folder (verify manually)",
+        "detected_at": "2025-12-06T13:57:24.569944"
+      },
+      {
+        "hive": "HKLM",
+        "key_path": "Software\\Microsoft\\Windows\\CurrentVersion\\Run",
+        "name": "SecurityHealth",
+        "value": "%windir%\\system32\\SecurityHealthSystray.exe",
+        "threat_level": "HIGH",
+        "reason": "Known malicious entry name: SecurityHealth",
+        "detected_at": "2025-12-06T13:57:24.570202"
+      }
+    ]
+  },
+  "startup_scan": {
+    "scan_time": "2025-12-06T13:57:24.578016",
+    "total_files": 4,
+    "total_threats": 0,
+    "high_risk": 0,
+    "medium_risk": 0,
+    "low_risk": 0,
+    "threats": []
+  },
+  "removal_summary": {
+    "total_threats": 5,
+    "removed": 0,
+    "failed": 1,
+    "skipped_low_risk": 4
+  },
+  "summary": {
+    "total_threats": 5,
+    "high_risk": 1,
+    "medium_risk": 0,
+    "low_risk": 4
+  }
+}

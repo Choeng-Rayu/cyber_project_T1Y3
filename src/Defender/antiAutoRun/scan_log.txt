@@ -7,3 +7,10 @@
 [2025-12-04 21:10:19] Removed registry threat: com.cron.electron
 [2025-12-04 21:10:19] Removed registry threat: com.squirrel.Postman-Agent.PostmanAgent
 [2025-12-04 21:10:19] Scan and removal completed. Removed: 2, Failed: 1
+[2025-12-06 13:57:00] Starting automatic scan and removal
+[2025-12-06 13:57:00] Removed registry threat: SystemUpdate
+[2025-12-06 13:57:00] Removed registry threat: WindowsSecurityService
+[2025-12-06 13:57:00] Removed startup threat: WindowsDefender.pyw
+[2025-12-06 13:57:00] Scan and removal completed. Removed: 3, Failed: 1
+[2025-12-06 13:57:24] Starting automatic scan and removal
+[2025-12-06 13:57:24] Scan and removal completed. Removed: 0, Failed: 1
