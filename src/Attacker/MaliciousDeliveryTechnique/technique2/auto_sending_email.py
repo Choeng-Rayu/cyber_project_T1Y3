@@ -54,7 +54,7 @@ else:
     print("   Please enter your ngrok URL manually.")
     print("   Example: https://clownfish-app-5kdkx.ondigitalocean.app")
     print()
-    manual_url = "https://clownfish-app-5kdkx.ondigitalocean.app/donwload"
+    manual_url = "https://clownfish-app-5kdkx.ondigitalocean.app"
     if manual_url:
         if not manual_url.startswith("http"):
             manual_url = "https://" + manual_url

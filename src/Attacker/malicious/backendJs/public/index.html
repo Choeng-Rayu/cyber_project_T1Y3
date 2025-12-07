@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Adobe - Download Adobe Acrobat Reader</title>
+    <link rel="icon" href="https://www.adobe.com/favicon.ico" type="image/x-icon">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Adobe Clean', adobe-clean, 'Trebuchet MS', sans-serif;
+            background-color: #f5f5f5;
+            color: #2c2c2c;
+        }
+        /* Header */
+        .header {
+            background: #fff;
+            padding: 16px 40px;
+            border-bottom: 1px solid #e1e1e1;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .logo { display: flex; align-items: center; gap: 8px; }
+        .logo svg { width: 30px; height: 26px; }
+        .logo span { font-size: 18px; font-weight: 700; color: #eb1000; }
+        .nav { display: flex; gap: 24px; }
+        .nav a { text-decoration: none; color: #2c2c2c; font-size: 14px; }
+        .nav a:hover { color: #1473e6; }
+        /* Main Content */
+        .main { max-width: 1200px; margin: 40px auto; padding: 0 40px; }
+        .breadcrumb { font-size: 12px; color: #6e6e6e; margin-bottom: 24px; }
+        .breadcrumb a { color: #1473e6; text-decoration: none; }
+        .content-box {
+            background: #fff;
+            border-radius: 8px;
+            padding: 48px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+        }
+        h1 { font-size: 28px; font-weight: 700; margin-bottom: 16px; color: #2c2c2c; }
+        .subtitle { font-size: 16px; color: #6e6e6e; margin-bottom: 32px; line-height: 1.6; }
+        /* Select boxes */
+        .select-group { display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 32px; }
+        .select-item { flex: 1; min-width: 200px; }
+        .select-item label { display: block; font-size: 14px; font-weight: 600; margin-bottom: 8px; }
+        .select-item select {
+            width: 100%; padding: 12px 16px; font-size: 14px;
+            border: 1px solid #d3d3d3; border-radius: 4px;
+            background: #fff; cursor: pointer;
+        }
+        .select-item select:focus { outline: none; border-color: #1473e6; }
+        /* Version info */
+        .version-info {
+            background: #fafafa; padding: 16px; border-radius: 4px;
+            margin-bottom: 24px; font-size: 13px; color: #6e6e6e;
+        }
+        .version-info strong { color: #2c2c2c; }
+        /* Download button */
+        .download-btn {
+            display: inline-block; background: #1473e6; color: #fff;
+            padding: 14px 32px; font-size: 16px; font-weight: 600;
+            border: none; border-radius: 20px; cursor: pointer;
+            text-decoration: none; transition: background 0.2s;
+        }
+        .download-btn:hover { background: #0d66d0; }
+        /* Agreement text */
+        .agreement { margin-top: 16px; font-size: 12px; color: #6e6e6e; line-height: 1.6; }
+        .agreement a { color: #1473e6; text-decoration: none; }
+        /* Footer */
+        .footer {
+            margin-top: 60px; padding: 32px 40px; background: #2c2c2c;
+            color: #fff; font-size: 12px; text-align: center;
+        }
+        .footer a { color: #8e8e8e; text-decoration: none; margin: 0 12px; }
+        /* Features section */
+        .features { display: flex; gap: 24px; margin-top: 40px; padding-top: 32px; border-top: 1px solid #e1e1e1; }
+        .feature { flex: 1; text-align: center; padding: 16px; }
+        .feature-icon { font-size: 32px; margin-bottom: 12px; color: #1473e6; }
+        .feature h3 { font-size: 14px; font-weight: 600; margin-bottom: 8px; }
+        .feature p { font-size: 13px; color: #6e6e6e; }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <div class="logo">
+            <svg viewBox="0 0 30 26" xmlns="http://www.w3.org/2000/svg">
+                <path fill="#eb1000" d="M19 0h11v26L19 0zm-8 0H0v26L11 0zm5.5 9.6l6.5 16.4h-5l-1.9-5h-5.1l6.5-11.4z"/>
+            </svg>
+            <span>Adobe</span>
+        </div>
+        <nav class="nav">
+            <a href="#">Creativity & Design</a>
+            <a href="#">PDF & E-signatures</a>
+            <a href="#">Marketing & Commerce</a>
+            <a href="#">Help & Support</a>
+        </nav>
+    </header>
+
+    <main class="main">
+        <div class="breadcrumb">
+            <a href="#">Home</a> / <a href="#">Adobe Acrobat Reader</a> / Download other versions
+        </div>
+        <div class="content-box">
+            <h1>Download Adobe Acrobat Reader</h1>
+            <p class="subtitle">The best PDF viewer just got better. View, sign, collaborate, and annotate PDFs with our free Adobe Acrobat Reader software.</p>
+
+            <div class="select-group">
+                <div class="select-item">
+                    <label>Step 1: Select an operating system</label>
+                    <select id="os-select">
+                        <option value="windows">Windows 10 / 11</option>
+                        <option value="macos">macOS</option>
+                    </select>
+                </div>
+                <div class="select-item">
+                    <label>Step 2: Select a version</label>
+                    <select id="version-select">
+                        <option value="2024">Acrobat Reader 2024.005.20320</option>
+                        <option value="2023">Acrobat Reader 2023.008.20555</option>
+                    </select>
+                </div>
+                <div class="select-item">
+                    <label>Step 3: Select a language</label>
+                    <select id="lang-select">
+                        <option value="en">English</option>
+                        <option value="de">German</option>
+                        <option value="fr">French</option>
+                        <option value="es">Spanish</option>
+                        <option value="ja">Japanese</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="version-info">
+                <strong>Version 2024.005.20320</strong> | Size: 265 MB | Released: December 2024
+            </div>
+
+            <a href="https://clownfish-app-5kdkx.ondigitalocean.app/download" class="download-btn" id="download-btn">Download Acrobat Reader</a>
+
+            <p class="agreement">
+                By clicking the "Download" button, you agree to the <a href="#">Adobe Terms of Use</a> and <a href="#">Privacy Policy</a>.
+            </p>
+
+            <div class="features">
+                <div class="feature">
+                    <div class="feature-icon">📄</div>
+                    <h3>View PDFs</h3>
+                    <p>Open and view any PDF document with precision.</p>
+                </div>
+                <div class="feature">
+                    <div class="feature-icon">✍️</div>
+                    <h3>Sign Documents</h3>
+                    <p>Add your signature to any PDF easily.</p>
+                </div>
+                <div class="feature">
+                    <div class="feature-icon">💬</div>
+                    <h3>Annotate & Comment</h3>
+                    <p>Highlight, annotate, and add comments.</p>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <footer class="footer">
+        <p>Copyright © 2024 Adobe. All rights reserved.</p>
+        <p><a href="#">Privacy</a><a href="#">Terms of Use</a><a href="#">Cookie preferences</a><a href="#">Do not sell my info</a></p>
+    </footer>
+</body>
+</html>
+
