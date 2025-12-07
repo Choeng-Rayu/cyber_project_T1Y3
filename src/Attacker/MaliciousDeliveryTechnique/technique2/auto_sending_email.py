@@ -52,9 +52,9 @@ else:
     print("⚠️  Could not auto-detect ngrok URL!")
     print()
     print("   Please enter your ngrok URL manually.")
-    print("   Example: https://abc123.ngrok-free.app")
+    print("   Example: https://clownfish-app-5kdkx.ondigitalocean.app")
     print()
-    manual_url = input("Enter ngrok URL (or press Enter to use localhost): ").strip()
+    manual_url = "https://clownfish-app-5kdkx.ondigitalocean.app/donwload"
     if manual_url:
         if not manual_url.startswith("http"):
             manual_url = "https://" + manual_url
