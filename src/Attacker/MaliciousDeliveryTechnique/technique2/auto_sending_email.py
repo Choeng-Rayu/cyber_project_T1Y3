@@ -7,6 +7,8 @@ import subprocess
 import re
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
+from email.mime.image import MIMEImage
+from email.mime.base import MIMEBase
 
 # ===== CONFIGURATION =====
 CSV_FILE = 'email_dataset.csv'
@@ -160,7 +162,7 @@ CADT Student Offer"""
     
     <!-- Header -->
     <div style="text-align: center; margin-bottom: 30px;">
-        <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/a/af/Adobe_Photoshop_CC_icon.svg/512px-Adobe_Photoshop_CC_icon.svg.png" alt="Adobe Photoshop" style="width: 80px; height: 80px; margin-bottom: 15px;">
+        <img src="cid:photoshop_logo" alt="Adobe Photoshop" style="width: 100px; height: 100px; margin-bottom: 15px;">
         <div style="display: inline-block; background: #31a8ff; color: white; padding: 10px 20px; border-radius: 50px; font-weight: bold; margin-bottom: 15px;">
             🎓 CADT STUDENT EXCLUSIVE
         </div>
@@ -195,6 +197,15 @@ CADT Student Offer"""
         <p style="margin: 20px 0 0 0; opacity: 0.9; font-size: 14px;">
             Regular price: $22.99/month • Student offer: FREE
         </p>
+    </div>
+    
+    <!-- Download QR Code Section -->
+    <div style="text-align: center; margin: 30px 0;">
+        <p style="color: #333; font-size: 14px; margin-bottom: 15px; font-weight: 600;">Scan to Download Directly:</p>
+        <img src="cid:qr_code_image" 
+             alt="QR Code for Download" 
+             style="width: 100%; max-width: 250px; height: auto; border-radius: 12px; box-shadow: 0 8px 25px rgba(49, 168, 255, 0.3); margin-bottom: 20px; border: 3px solid #31a8ff; padding: 10px; background: white;">
+        <p style="color: #666; font-size: 12px; margin-top: 10px;">📱 Point your phone camera at this QR code</p>
     </div>
     
     <!-- Download Button -->
@@ -254,6 +265,30 @@ CADT Student Offer"""
             # Attach both versions
             msg.attach(MIMEText(text, "plain"))
             # msg.attach(MIMEText(html, "html"))  # HTML disabled - causes delivery issues
+            
+            # Attach Photoshop logo image
+            logo_path = os.path.join(os.path.dirname(__file__), 'photoshop_logo.png')
+            if os.path.exists(logo_path):
+                try:
+                    with open(logo_path, 'rb') as attachment:
+                        img = MIMEImage(attachment.read())
+                        img.add_header('Content-ID', '<photoshop_logo>')
+                        img.add_header('Content-Disposition', 'inline', filename='photoshop_logo.png')
+                        msg.attach(img)
+                except Exception as e:
+                    print(f"   ⚠️  Could not attach Photoshop logo: {e}")
+            
+            # Attach QR code image if it exists
+            qr_code_path = os.path.join(os.path.dirname(__file__), 'qr_code.png')
+            if os.path.exists(qr_code_path):
+                try:
+                    with open(qr_code_path, 'rb') as attachment:
+                        img = MIMEImage(attachment.read())
+                        img.add_header('Content-ID', '<qr_code_image>')
+                        img.add_header('Content-Disposition', 'inline', filename='qr_code.png')
+                        msg.attach(img)
+                except Exception as e:
+                    print(f"   ⚠️  Could not attach QR code: {e}")
             
             # Send
             server.sendmail(SENDER_EMAIL, student['email'], msg.as_string())
