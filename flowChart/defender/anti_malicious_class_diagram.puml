@@ -1,0 +1,180 @@
+@startuml Anti-Malicious Defender Class Diagram
+
+!theme plain
+skinparam classAttributeIconSize 0
+skinparam classFontSize 12
+skinparam classAttributeFontSize 10
+skinparam packageFontSize 14
+skinparam ArrowColor #2C3E50
+skinparam ClassBorderColor #2C3E50
+skinparam ClassBackgroundColor #ECF0F1
+skinparam PackageBorderColor #3498DB
+skinparam PackageBackgroundColor #FAFAFA
+
+title Anti-Malicious Defender - Complete Class Diagram\nDefends against: Photoshop_Setup.py Malware
+
+package "Core Protection Modules" {
+    class MalwareSignatureScanner {
+        - patterns : dict
+        --
+        + __init__()
+        + scan_file(file_path) : dict
+        + scan_directory(directory, recursive) : list
+        + get_threat_level(patterns) : str
+    }
+    
+    class BrowserProtector {
+        - protected_paths : list
+        - browser_processes : list
+        --
+        + __init__()
+        + get_browser_db_paths() : dict
+        + get_discord_paths() : list
+        + check_browser_access_attempts() : list
+        - _is_legitimate_browser_process(process_name) : bool
+    }
+    
+    class RegistryProtector {
+        - baseline : dict
+        - suspicious_entries : list
+        --
+        + __init__()
+        + get_startup_entries() : dict
+        + create_baseline()
+        + detect_new_entries() : list
+        + remove_malicious_entry(key_path) : bool
+    }
+    
+    class RansomwareProtector {
+        - encrypted_extension : str
+        - lock_file_names : list
+        - known_ransomware_extensions : list
+        - file_baseline : dict
+        --
+        + __init__()
+        + check_for_ransomware_lock_files() : list
+        + check_for_encrypted_files() : list
+        + decrypt_file(file_path) : bool
+        + decrypt_folder(folder_path) : int
+        + create_file_baseline()
+        + detect_mass_encryption() : bool
+    }
+    
+    class NetworkProtector {
+        - blocked_domains : list
+        - blocked_ips : list
+        --
+        + __init__()
+        + check_suspicious_connections() : list
+        + block_malicious_domains() : bool
+        + kill_suspicious_process(pid) : bool
+    }
+}
+
+package "USB & Network Spreading Protection" {
+    class USBAutorunProtector {
+        - autorun_files : list
+        - suspicious_usb_files : list
+        --
+        + __init__()
+        + get_removable_drives() : list
+        + disable_autorun_registry() : bool
+        + disable_autoplay_registry() : bool
+        + scan_drive_for_autorun(drive_path) : list
+        + remove_autorun_file(file_path) : bool
+        + protect_all_drives() : list
+        + create_autorun_immunization(drive_path) : bool
+    }
+    
+    class NetworkSpreadingProtector {
+        - network_share_paths : list
+        - suspicious_share_files : list
+        - blocked_ports : list
+        --
+        + __init__()
+        + get_network_shares() : list
+        + scan_network_share(share_path) : list
+        + disable_admin_shares() : bool
+        + check_smb_connections() : list
+        + block_network_spreading_firewall() : bool
+        + remove_firewall_rules() : bool
+        + protect_shared_folders() : list
+        + get_local_shared_folders() : list
+    }
+}
+
+package "Process Monitoring" {
+    class ProcessMonitor {
+        - suspicious_names : list
+        - suspicious_cmdlines : list
+        --
+        + __init__()
+        + scan_processes() : list
+        + kill_process(pid) : bool
+    }
+}
+
+package "Main Engine" {
+    class AntiMalwareEngine {
+        - scanner : MalwareSignatureScanner
+        - browser_protector : BrowserProtector
+        - registry_protector : RegistryProtector
+        - ransomware_protector : RansomwareProtector
+        - network_protector : NetworkProtector
+        - process_monitor : ProcessMonitor
+        - usb_protector : USBAutorunProtector
+        - network_spreading_protector : NetworkSpreadingProtector
+        - is_running : bool
+        - protection_active : bool
+        - scan_results : list
+        - alerts : list
+        - log_queue : Queue
+        --
+        + __init__()
+        + log(message, level)
+        + quick_scan(directory) : list
+        + full_scan(directory) : list
+        + check_system_health() : dict
+        + remove_threats(threats) : int
+        + restore_encrypted_files() : int
+    }
+}
+
+package "GUI Interface" {
+    class AntiMalwareGUI {
+        - engine : AntiMalwareEngine
+        - root : Tk
+        - log_text : ScrolledText
+        - threats_tree : Treeview
+        - bg_color : str
+        - card_bg : str
+        - accent : str
+        --
+        + __init__(engine)
+        + setup_ui()
+        + build_activity_log(parent)
+        + build_threats_view(parent)
+        + build_protection_status(parent)
+        + log_message(message)
+        + quick_scan()
+        + full_scan()
+        + custom_scan()
+        + health_check()
+        + restore_files()
+        + run()
+    }
+}
+
+' Relationships
+AntiMalwareEngine *-- MalwareSignatureScanner
+AntiMalwareEngine *-- BrowserProtector
+AntiMalwareEngine *-- RegistryProtector
+AntiMalwareEngine *-- RansomwareProtector
+AntiMalwareEngine *-- NetworkProtector
+AntiMalwareEngine *-- ProcessMonitor
+AntiMalwareEngine *-- USBAutorunProtector
+AntiMalwareEngine *-- NetworkSpreadingProtector
+AntiMalwareGUI *-- AntiMalwareEngine
+
+@enduml
+

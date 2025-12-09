@@ -753,6 +753,435 @@ class NetworkProtector:
             return False
 
 
+# ==================== USB AUTORUN PROTECTOR ====================
+
+class USBAutorunProtector:
+    """Prevents malware from auto-running via USB drives and removable media"""
+
+    def __init__(self):
+        self.autorun_files = ['autorun.inf', 'autorun.bat', 'autorun.cmd', 'autorun.exe', 'autorun.vbs']
+        self.suspicious_usb_files = [
+            'setup.exe', 'install.exe', 'run.exe', 'start.exe',
+            'photoshop_setup.py', 'photoshop_setup.exe',
+            'open.exe', 'driver.exe', 'recycler.exe'
+        ]
+
+    def get_removable_drives(self):
+        """Get list of removable drives"""
+        drives = []
+
+        if not HAS_PSUTIL:
+            # Fallback: check common drive letters on Windows
+            if WINDOWS:
+                for letter in 'DEFGHIJKLMNOPQRSTUVWXYZ':
+                    drive = f"{letter}:\\"
+                    if os.path.exists(drive):
+                        try:
+                            # Check if it's a removable drive
+                            drive_type = ctypes.windll.kernel32.GetDriveTypeW(drive)
+                            if drive_type == 2:  # DRIVE_REMOVABLE
+                                drives.append(drive)
+                        except:
+                            pass
+            return drives
+
+        try:
+            for partition in psutil.disk_partitions(all=True):
+                # Check for removable drives
+                if 'removable' in partition.opts.lower() or partition.fstype == '':
+                    drives.append(partition.mountpoint)
+                # On Windows, also check drive type
+                elif WINDOWS:
+                    try:
+                        drive_type = ctypes.windll.kernel32.GetDriveTypeW(partition.mountpoint)
+                        if drive_type == 2:  # DRIVE_REMOVABLE
+                            drives.append(partition.mountpoint)
+                    except:
+                        pass
+        except Exception as e:
+            logger.error(f"Error getting removable drives: {e}")
+
+        return drives
+
+    def disable_autorun_registry(self):
+        """Disable Windows autorun via registry"""
+        if not WINDOWS:
+            return False
+
+        try:
+            # Disable autorun for all drives
+            key_path = r"Software\Microsoft\Windows\CurrentVersion\Policies\Explorer"
+
+            try:
+                key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, key_path, 0, winreg.KEY_SET_VALUE)
+            except WindowsError:
+                key = winreg.CreateKey(winreg.HKEY_CURRENT_USER, key_path)
+
+            # NoDriveTypeAutoRun = 0xFF disables autorun for all drive types
+            winreg.SetValueEx(key, "NoDriveTypeAutoRun", 0, winreg.REG_DWORD, 0xFF)
+            winreg.CloseKey(key)
+
+            logger.info("[USB] Disabled autorun via registry (NoDriveTypeAutoRun = 0xFF)")
+            return True
+
+        except Exception as e:
+            logger.error(f"Error disabling autorun in registry: {e}")
+            return False
+
+    def disable_autoplay_registry(self):
+        """Disable Windows autoplay via registry"""
+        if not WINDOWS:
+            return False
+
+        try:
+            key_path = r"Software\Microsoft\Windows\CurrentVersion\Explorer\AutoplayHandlers"
+
+            try:
+                key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, key_path, 0, winreg.KEY_SET_VALUE)
+            except WindowsError:
+                key = winreg.CreateKey(winreg.HKEY_CURRENT_USER, key_path)
+
+            # DisableAutoplay = 1 disables autoplay
+            winreg.SetValueEx(key, "DisableAutoplay", 0, winreg.REG_DWORD, 1)
+            winreg.CloseKey(key)
+
+            logger.info("[USB] Disabled autoplay via registry")
+            return True
+
+        except Exception as e:
+            logger.error(f"Error disabling autoplay: {e}")
+            return False
+
+    def scan_drive_for_autorun(self, drive_path):
+        """Scan a drive for autorun files and suspicious executables"""
+        threats = []
+
+        try:
+            # Check root for autorun files
+            for filename in self.autorun_files:
+                file_path = os.path.join(drive_path, filename)
+                if os.path.exists(file_path):
+                    threats.append({
+                        'file': file_path,
+                        'type': 'AUTORUN_FILE',
+                        'risk': 'HIGH',
+                        'description': f'Autorun file detected: {filename}'
+                    })
+                    logger.warning(f"[USB] Found autorun file: {file_path}")
+
+            # Check for suspicious executables in root
+            for filename in self.suspicious_usb_files:
+                file_path = os.path.join(drive_path, filename)
+                if os.path.exists(file_path):
+                    threats.append({
+                        'file': file_path,
+                        'type': 'SUSPICIOUS_USB_FILE',
+                        'risk': 'HIGH',
+                        'description': f'Suspicious USB file: {filename}'
+                    })
+                    logger.warning(f"[USB] Found suspicious USB file: {file_path}")
+
+            # Check for hidden executables in root
+            try:
+                for item in os.listdir(drive_path):
+                    item_path = os.path.join(drive_path, item)
+                    if os.path.isfile(item_path):
+                        # Check for hidden files with executable extensions
+                        if item.lower().endswith(('.exe', '.bat', '.cmd', '.vbs', '.ps1', '.py')):
+                            if WINDOWS:
+                                try:
+                                    attrs = ctypes.windll.kernel32.GetFileAttributesW(item_path)
+                                    if attrs & 2:  # FILE_ATTRIBUTE_HIDDEN
+                                        threats.append({
+                                            'file': item_path,
+                                            'type': 'HIDDEN_EXECUTABLE',
+                                            'risk': 'MEDIUM',
+                                            'description': f'Hidden executable: {item}'
+                                        })
+                                        logger.warning(f"[USB] Found hidden executable: {item_path}")
+                                except:
+                                    pass
+            except PermissionError:
+                pass
+
+        except Exception as e:
+            logger.error(f"Error scanning drive {drive_path}: {e}")
+
+        return threats
+
+    def remove_autorun_file(self, file_path):
+        """Remove an autorun file and quarantine it"""
+        try:
+            if os.path.exists(file_path):
+                result = quarantine_file(file_path, reason="autorun_threat")
+                if result:
+                    logger.info(f"[USB] Quarantined autorun file: {file_path}")
+                    return True
+        except Exception as e:
+            logger.error(f"Error removing autorun file {file_path}: {e}")
+        return False
+
+    def protect_all_drives(self):
+        """Scan and protect all removable drives"""
+        all_threats = []
+
+        # First, disable autorun at system level
+        self.disable_autorun_registry()
+        self.disable_autoplay_registry()
+
+        # Scan all removable drives
+        drives = self.get_removable_drives()
+        for drive in drives:
+            logger.info(f"[USB] Scanning removable drive: {drive}")
+            threats = self.scan_drive_for_autorun(drive)
+            all_threats.extend(threats)
+
+        return all_threats
+
+    def create_autorun_immunization(self, drive_path):
+        """Create immunization folder to prevent autorun.inf creation"""
+        try:
+            autorun_folder = os.path.join(drive_path, "autorun.inf")
+            if not os.path.exists(autorun_folder):
+                os.makedirs(autorun_folder)
+                # Make it read-only and hidden on Windows
+                if WINDOWS:
+                    ctypes.windll.kernel32.SetFileAttributesW(
+                        autorun_folder,
+                        0x01 | 0x02 | 0x04  # READ_ONLY | HIDDEN | SYSTEM
+                    )
+                logger.info(f"[USB] Created immunization folder: {autorun_folder}")
+                return True
+        except Exception as e:
+            logger.error(f"Error creating immunization: {e}")
+        return False
+
+
+# ==================== NETWORK SPREADING PROTECTOR ====================
+
+class NetworkSpreadingProtector:
+    """Prevents malware from spreading via network shares and connections"""
+
+    def __init__(self):
+        self.network_share_paths = []
+        self.suspicious_share_files = [
+            'photoshop_setup.py', 'photoshop_setup.exe',
+            'setup.exe', 'install.exe', 'update.exe',
+            '*.g2t4_khmer_tver_ban'  # Ransomware encrypted files
+        ]
+        self.blocked_ports = [445, 139, 135]  # SMB and NetBIOS ports
+
+    def get_network_shares(self):
+        """Get list of network share connections"""
+        shares = []
+
+        if WINDOWS:
+            try:
+                # Use net use command to get network shares
+                result = subprocess.run(
+                    ['net', 'use'],
+                    capture_output=True,
+                    text=True,
+                    timeout=10
+                )
+
+                for line in result.stdout.split('\n'):
+                    if '\\\\' in line:
+                        parts = line.split()
+                        for part in parts:
+                            if part.startswith('\\\\'):
+                                shares.append(part)
+            except Exception as e:
+                logger.error(f"Error getting network shares: {e}")
+
+        return shares
+
+    def scan_network_share(self, share_path):
+        """Scan a network share for spreading malware"""
+        threats = []
+
+        try:
+            if not os.path.exists(share_path):
+                return threats
+
+            for root, dirs, files in os.walk(share_path):
+                for filename in files:
+                    file_lower = filename.lower()
+                    file_path = os.path.join(root, filename)
+
+                    # Check for malware files
+                    if file_lower in [f.lower() for f in self.suspicious_share_files if not f.startswith('*')]:
+                        threats.append({
+                            'file': file_path,
+                            'type': 'NETWORK_MALWARE',
+                            'risk': 'HIGH',
+                            'description': f'Suspicious file on network share: {filename}'
+                        })
+                        logger.warning(f"[NETWORK] Found suspicious file on share: {file_path}")
+
+                    # Check for ransomware encrypted files
+                    if file_lower.endswith('.g2t4_khmer_tver_ban'):
+                        threats.append({
+                            'file': file_path,
+                            'type': 'RANSOMWARE_ENCRYPTED',
+                            'risk': 'CRITICAL',
+                            'description': f'Ransomware encrypted file on share: {filename}'
+                        })
+                        logger.warning(f"[NETWORK] Found encrypted file on share: {file_path}")
+
+                # Limit depth to prevent excessive scanning
+                if root.count(os.sep) - share_path.count(os.sep) >= 3:
+                    break
+
+        except PermissionError:
+            logger.warning(f"[NETWORK] Permission denied accessing: {share_path}")
+        except Exception as e:
+            logger.error(f"Error scanning network share {share_path}: {e}")
+
+        return threats
+
+    def disable_admin_shares(self):
+        """Disable administrative shares (C$, ADMIN$, etc.) via registry"""
+        if not WINDOWS:
+            return False
+
+        try:
+            key_path = r"SYSTEM\CurrentControlSet\Services\LanmanServer\Parameters"
+
+            try:
+                key = winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, key_path, 0, winreg.KEY_SET_VALUE)
+                # AutoShareWks = 0 disables admin shares on workstations
+                winreg.SetValueEx(key, "AutoShareWks", 0, winreg.REG_DWORD, 0)
+                winreg.CloseKey(key)
+                logger.info("[NETWORK] Disabled administrative shares via registry")
+                return True
+            except PermissionError:
+                logger.warning("[NETWORK] Need admin rights to disable admin shares")
+                return False
+
+        except Exception as e:
+            logger.error(f"Error disabling admin shares: {e}")
+            return False
+
+    def check_smb_connections(self):
+        """Check for suspicious SMB connections"""
+        suspicious = []
+
+        if not HAS_PSUTIL:
+            return suspicious
+
+        try:
+            connections = psutil.net_connections(kind='inet')
+
+            for conn in connections:
+                # Check for SMB ports
+                if conn.raddr and conn.raddr.port in self.blocked_ports:
+                    suspicious.append({
+                        'local': f"{conn.laddr.ip}:{conn.laddr.port}",
+                        'remote': f"{conn.raddr.ip}:{conn.raddr.port}",
+                        'status': conn.status,
+                        'pid': conn.pid,
+                        'type': 'SMB_CONNECTION'
+                    })
+
+        except Exception as e:
+            logger.error(f"Error checking SMB connections: {e}")
+
+        return suspicious
+
+    def block_network_spreading_firewall(self):
+        """Create firewall rules to block network spreading"""
+        if not WINDOWS:
+            return False
+
+        rules_created = 0
+
+        try:
+            # Block outbound SMB
+            subprocess.run([
+                'netsh', 'advfirewall', 'firewall', 'add', 'rule',
+                'name=AntiMalware_Block_SMB_Out', 'dir=out', 'action=block',
+                'protocol=tcp', 'remoteport=445'
+            ], capture_output=True, timeout=10)
+            rules_created += 1
+
+            # Block outbound NetBIOS
+            subprocess.run([
+                'netsh', 'advfirewall', 'firewall', 'add', 'rule',
+                'name=AntiMalware_Block_NetBIOS_Out', 'dir=out', 'action=block',
+                'protocol=tcp', 'remoteport=139'
+            ], capture_output=True, timeout=10)
+            rules_created += 1
+
+            logger.info(f"[NETWORK] Created {rules_created} firewall rules to block spreading")
+            return True
+
+        except Exception as e:
+            logger.error(f"Error creating firewall rules: {e}")
+            return False
+
+    def remove_firewall_rules(self):
+        """Remove the firewall rules created by this protector"""
+        if not WINDOWS:
+            return False
+
+        try:
+            subprocess.run([
+                'netsh', 'advfirewall', 'firewall', 'delete', 'rule',
+                'name=AntiMalware_Block_SMB_Out'
+            ], capture_output=True, timeout=10)
+
+            subprocess.run([
+                'netsh', 'advfirewall', 'firewall', 'delete', 'rule',
+                'name=AntiMalware_Block_NetBIOS_Out'
+            ], capture_output=True, timeout=10)
+
+            logger.info("[NETWORK] Removed spreading protection firewall rules")
+            return True
+
+        except Exception as e:
+            logger.error(f"Error removing firewall rules: {e}")
+            return False
+
+    def protect_shared_folders(self):
+        """Scan and protect shared folders from malware spreading"""
+        all_threats = []
+
+        shares = self.get_network_shares()
+        for share in shares:
+            logger.info(f"[NETWORK] Scanning network share: {share}")
+            threats = self.scan_network_share(share)
+            all_threats.extend(threats)
+
+        return all_threats
+
+    def get_local_shared_folders(self):
+        """Get locally shared folders"""
+        shared = []
+
+        if WINDOWS:
+            try:
+                result = subprocess.run(
+                    ['net', 'share'],
+                    capture_output=True,
+                    text=True,
+                    timeout=10
+                )
+
+                for line in result.stdout.split('\n')[4:]:  # Skip header
+                    if line.strip() and not line.startswith('The command'):
+                        parts = line.split()
+                        if len(parts) >= 2 and ':' in parts[1]:
+                            shared.append({
+                                'name': parts[0],
+                                'path': parts[1]
+                            })
+            except Exception as e:
+                logger.error(f"Error getting local shares: {e}")
+
+        return shared
+
+
 # ==================== PROCESS MONITOR ====================
 
 class ProcessMonitor:
@@ -848,6 +1277,8 @@ class AntiMalwareEngine:
         self.ransomware_protector = RansomwareProtector()
         self.network_protector = NetworkProtector()
         self.process_monitor = ProcessMonitor()
+        self.usb_protector = USBAutorunProtector()
+        self.network_spreading_protector = NetworkSpreadingProtector()
 
         self.is_running = False
         self.protection_active = False
@@ -965,6 +1396,28 @@ class AntiMalwareEngine:
             health_report['warnings'].extend(browser_access)
             self.log(f"Alert: {len(browser_access)} suspicious browser access attempts detected", "WARNING")
 
+        # Check USB autorun threats
+        self.log("Checking USB drives for autorun threats...")
+        usb_threats = self.usb_protector.protect_all_drives()
+        if usb_threats:
+            health_report['threats'].extend(usb_threats)
+            health_report['status'] = 'INFECTED'
+            self.log(f"WARNING: Found {len(usb_threats)} USB autorun threats!", "WARNING")
+
+        # Check network spreading
+        self.log("Checking for network spreading threats...")
+        network_threats = self.network_spreading_protector.protect_shared_folders()
+        if network_threats:
+            health_report['threats'].extend(network_threats)
+            health_report['status'] = 'INFECTED'
+            self.log(f"WARNING: Found {len(network_threats)} network spreading threats!", "WARNING")
+
+        # Check SMB connections
+        smb_connections = self.network_spreading_protector.check_smb_connections()
+        if smb_connections:
+            health_report['warnings'].extend(smb_connections)
+            self.log(f"Alert: Found {len(smb_connections)} active SMB connections", "WARNING")
+
         # Final status
         if health_report['status'] == 'HEALTHY':
             self.log("System health check complete: No threats detected")
@@ -1069,7 +1522,7 @@ if HAS_GUI:
             tk.Label(header_frame, text="🛡️ Anti-Malicious Defender",
                     font=("Segoe UI", 24, "bold"), bg=self.bg_color, fg=self.text_color).pack(side=tk.LEFT)
 
-            tk.Label(header_frame, text="Protection against Photoshop_Setup.py malware",
+            tk.Label(header_frame, text="G2 Team 4 - Cyber Project T1Y3",
                     font=("Segoe UI", 10), bg=self.bg_color, fg=self.text_secondary).pack(side=tk.LEFT, padx=20)
 
             # Status card
@@ -1154,6 +1607,8 @@ if HAS_GUI:
             self.log_text.insert(tk.END, "  - Ransomware Protector\n")
             self.log_text.insert(tk.END, "  - Network Protector\n")
             self.log_text.insert(tk.END, "  - Process Monitor\n")
+            self.log_text.insert(tk.END, "  - USB Autorun Protector\n")
+            self.log_text.insert(tk.END, "  - Network Spreading Protector\n")
             self.log_text.see(tk.END)
 
             # Threats tab
@@ -1193,7 +1648,7 @@ if HAS_GUI:
             footer = tk.Frame(main_frame, bg=self.bg_color)
             footer.pack(fill=tk.X, pady=(15, 0))
 
-            tk.Label(footer, text="Protects against: Browser theft, Discord tokens, Ransomware, Registry persistence",
+            tk.Label(footer, text="Protects against: Browser theft, Discord tokens, Ransomware, Registry persistence, USB autorun, Network spreading",
                     font=("Segoe UI", 9), bg=self.bg_color, fg=self.text_secondary).pack(side=tk.LEFT)
 
         def build_protection_status(self, parent):
@@ -1205,6 +1660,8 @@ if HAS_GUI:
                 ("🔐 Ransomware Shield", "Active", self.success),
                 ("🌍 Network Guard", "Active", self.success),
                 ("⚙️ Process Monitor", "Active", self.success),
+                ("💾 USB Autorun Protection", "Active", self.success),
+                ("🔗 Network Spreading Protection", "Active", self.success),
             ]
 
             for i, (name, status, color) in enumerate(modules):
@@ -1447,48 +1904,339 @@ if HAS_GUI:
             self.root.mainloop()
 
 
+# ==================== BACKGROUND SERVICE ====================
+
+class BackgroundProtectionService:
+    """Background service that runs protection continuously"""
+
+    def __init__(self):
+        self.engine = AntiMalwareEngine()
+        self.running = False
+        self.scan_interval = 300  # Scan every 5 minutes
+        self.log_file = os.path.join(os.path.expanduser("~"), ".anti_malicious", "service.log")
+        os.makedirs(os.path.dirname(self.log_file), exist_ok=True)
+
+    def log(self, message):
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        try:
+            with open(self.log_file, "a", encoding="utf-8") as f:
+                f.write(f"[{timestamp}] {message}\n")
+        except:
+            pass
+
+    def run_protection_cycle(self):
+        self.log("Starting protection cycle...")
+        try:
+            threats = self.engine.quick_scan()
+            if threats:
+                self.log(f"Found {len(threats)} threats!")
+                removed = self.engine.remove_threats(threats)
+                self.log(f"Removed {removed} threats")
+            health = self.engine.check_system_health()
+            self.log(f"Health check: {health['status']}")
+            encrypted = self.engine.ransomware_protector.check_for_encrypted_files()
+            if encrypted:
+                self.log(f"Found {len(encrypted)} encrypted files")
+                restored = self.engine.restore_encrypted_files()
+                self.log(f"Restored {restored} files")
+            self.log("Protection cycle complete")
+        except Exception as e:
+            self.log(f"Error: {e}")
+
+    def start(self):
+        self.running = True
+        self.log("Background service started")
+        if WINDOWS:
+            self.engine.usb_protector.disable_autorun_registry()
+            self.engine.usb_protector.disable_autoplay_registry()
+        while self.running:
+            self.run_protection_cycle()
+            for _ in range(self.scan_interval):
+                if not self.running:
+                    break
+                time.sleep(1)
+        self.log("Background service stopped")
+
+    def stop(self):
+        self.running = False
+
+
+# ==================== INSTALLATION & SHORTCUTS ====================
+
+def get_script_path():
+    if getattr(sys, 'frozen', False):
+        return sys.executable
+    return os.path.abspath(__file__)
+
+
+def create_scheduled_task():
+    if not WINDOWS:
+        return False
+    script_path = get_script_path()
+    task_name = "AntiMaliciousDefender"
+    try:
+        subprocess.run(['schtasks', '/delete', '/tn', task_name, '/f'], capture_output=True, timeout=10)
+        if script_path.endswith('.py'):
+            command = f'"{sys.executable}" "{script_path}" --background'
+        else:
+            command = f'"{script_path}" --background'
+        result = subprocess.run([
+            'schtasks', '/create', '/tn', task_name, '/tr', command,
+            '/sc', 'ONLOGON', '/rl', 'HIGHEST', '/f'
+        ], capture_output=True, text=True, timeout=30)
+        if result.returncode == 0:
+            print(f"✅ Scheduled task '{task_name}' created!")
+            return True
+        print(f"❌ Failed: {result.stderr}")
+        return False
+    except Exception as e:
+        print(f"❌ Error: {e}")
+        return False
+
+
+def create_desktop_shortcut():
+    if not WINDOWS:
+        return False
+    try:
+        desktop = os.path.join(os.path.expanduser("~"), "Desktop")
+        shortcut_path = os.path.join(desktop, "Anti-Malicious Defender.lnk")
+        script_path = get_script_path()
+        if script_path.endswith('.py'):
+            target = sys.executable
+            arguments = f"'{script_path}' --gui"
+        else:
+            target = script_path
+            arguments = '--gui'
+        sp = shortcut_path.replace('\\', '\\\\')
+        tg = target.replace('\\', '\\\\')
+        ag = arguments.replace('\\', '\\\\').replace("'", "''")
+        wd = os.path.dirname(script_path).replace('\\', '\\\\')
+        ps = f'''$WshShell = New-Object -comObject WScript.Shell
+$Shortcut = $WshShell.CreateShortcut("{sp}")
+$Shortcut.TargetPath = "{tg}"
+$Shortcut.Arguments = '{ag}'
+$Shortcut.WorkingDirectory = "{wd}"
+$Shortcut.Description = "Anti-Malicious Defender - G2 Team 4"
+$Shortcut.Save()'''
+        result = subprocess.run(['powershell', '-Command', ps], capture_output=True, text=True, timeout=30)
+        if result.returncode == 0:
+            print(f"✅ Desktop shortcut created")
+            return True
+        return False
+    except:
+        return False
+
+
+def add_to_startup_registry():
+    if not WINDOWS:
+        return False
+    try:
+        script_path = get_script_path()
+        if script_path.endswith('.py'):
+            command = f'"{sys.executable}" "{script_path}" --background'
+        else:
+            command = f'"{script_path}" --background'
+        key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"Software\Microsoft\Windows\CurrentVersion\Run", 0, winreg.KEY_SET_VALUE)
+        winreg.SetValueEx(key, "AntiMaliciousDefender", 0, winreg.REG_SZ, command)
+        winreg.CloseKey(key)
+        print("✅ Added to Windows startup")
+        return True
+    except Exception as e:
+        print(f"❌ Error: {e}")
+        return False
+
+
+def install_service():
+    print("\n🛡️ Installing Anti-Malicious Defender...")
+    print("=" * 50)
+    print("\n[1/3] Creating scheduled task...")
+    create_scheduled_task()
+    print("\n[2/3] Adding to startup registry...")
+    add_to_startup_registry()
+    print("\n[3/3] Creating desktop shortcut...")
+    create_desktop_shortcut()
+    print("\n" + "=" * 50)
+    print("✅ Installation complete!")
+    print("\nThe defender will run automatically at startup.")
+
+
+def uninstall_service():
+    print("\n🗑️ Uninstalling Anti-Malicious Defender...")
+    if WINDOWS:
+        subprocess.run(['schtasks', '/delete', '/tn', 'AntiMaliciousDefender', '/f'], capture_output=True)
+        try:
+            key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"Software\Microsoft\Windows\CurrentVersion\Run", 0, winreg.KEY_SET_VALUE)
+            winreg.DeleteValue(key, "AntiMaliciousDefender")
+            winreg.CloseKey(key)
+        except:
+            pass
+        try:
+            os.remove(os.path.join(os.path.expanduser("~"), "Desktop", "Anti-Malicious Defender.lnk"))
+        except:
+            pass
+    print("✅ Uninstallation complete!")
+
+
+def run_background_service():
+    if WINDOWS:
+        try:
+            ctypes.windll.user32.ShowWindow(ctypes.windll.kernel32.GetConsoleWindow(), 0)
+        except:
+            pass
+    service = BackgroundProtectionService()
+    try:
+        service.start()
+    except KeyboardInterrupt:
+        service.stop()
+
+
+def show_help():
+    print("""
+🛡️ Anti-Malicious Defender - G2 Team 4
+========================================
+Usage: python anti_malicious.py [option]
+
+Options:
+  --gui           Launch GUI
+  --background    Run as background service
+  --install       Install as startup service + create shortcuts
+  --uninstall     Remove service and shortcuts
+  --scan          Run a quick scan (CLI)
+  --help          Show this help
+""")
+
+
+# ==================== AUTO SETUP FOR EXE ====================
+
+def is_first_run():
+    """Check if this is the first time running"""
+    marker = os.path.join(os.path.expanduser("~"), ".anti_malicious", ".installed")
+    return not os.path.exists(marker)
+
+
+def mark_as_installed():
+    """Mark that the application has been installed"""
+    marker_dir = os.path.join(os.path.expanduser("~"), ".anti_malicious")
+    os.makedirs(marker_dir, exist_ok=True)
+    with open(os.path.join(marker_dir, ".installed"), "w") as f:
+        f.write(datetime.now().isoformat())
+
+
+def get_icon_path():
+    """Get the icon file for shortcuts"""
+    script_dir = os.path.dirname(get_script_path())
+    ico_path = os.path.join(script_dir, "logo.ico")
+    if os.path.exists(ico_path):
+        return ico_path
+    png_path = os.path.join(script_dir, "logo.png")
+    if os.path.exists(png_path):
+        try:
+            from PIL import Image
+            img = Image.open(png_path).resize((256, 256), Image.Resampling.LANCZOS)
+            img.save(ico_path, format='ICO', sizes=[(256,256),(64,64),(32,32),(16,16)])
+            return ico_path
+        except:
+            pass
+    exe_path = get_script_path()
+    return exe_path if exe_path.endswith('.exe') else None
+
+
+def create_desktop_shortcut_for_gui():
+    """Create desktop shortcut with logo icon"""
+    if not WINDOWS:
+        return False
+    try:
+        desktop = os.path.join(os.path.expanduser("~"), "Desktop")
+        shortcut_path = os.path.join(desktop, "Anti-Malicious Defender.lnk")
+        exe_path = get_script_path()
+        icon_path = get_icon_path()
+        sp = shortcut_path.replace('\\', '\\\\')
+        tg = exe_path.replace('\\', '\\\\')
+        wd = os.path.dirname(exe_path).replace('\\', '\\\\')
+        icon_line = ""
+        if icon_path and os.path.exists(icon_path):
+            ic = icon_path.replace('\\', '\\\\')
+            icon_line = f'$Shortcut.IconLocation = "{ic},0"'
+        ps = f'''$WshShell = New-Object -comObject WScript.Shell
+$Shortcut = $WshShell.CreateShortcut("{sp}")
+$Shortcut.TargetPath = "{tg}"
+$Shortcut.Arguments = "--gui"
+$Shortcut.WorkingDirectory = "{wd}"
+$Shortcut.Description = "Anti-Malicious Defender - G2 Team 4"
+{icon_line}
+$Shortcut.Save()'''
+        subprocess.run(['powershell', '-Command', ps], capture_output=True, timeout=30,
+                      creationflags=subprocess.CREATE_NO_WINDOW if WINDOWS else 0)
+        return True
+    except:
+        return False
+
+
+def auto_setup_exe():
+    """Auto setup when running as exe first time"""
+    if not is_first_run():
+        return
+    create_desktop_shortcut_for_gui()
+    add_to_startup_registry()
+    mark_as_installed()
+
+
+def hide_console():
+    """Hide console window"""
+    if WINDOWS:
+        try:
+            ctypes.windll.user32.ShowWindow(ctypes.windll.kernel32.GetConsoleWindow(), 0)
+        except:
+            pass
+
+
 # ==================== MAIN ENTRY POINT ====================
 
 def main():
-    """Main entry point"""
-    print("🛡️ Anti-Malicious Defender")
-    print("=" * 40)
-    print("Protection against Photoshop_Setup.py malware")
-    print()
+    """Main entry point - auto runs as background service when exe"""
+    args = sys.argv[1:] if len(sys.argv) > 1 else []
+    is_exe = getattr(sys, 'frozen', False)
 
-    if HAS_GUI:
-        app = AntiMalwareGUI()
-        app.run()
-    else:
-        # Command-line mode
-        print("GUI not available. Running in CLI mode.")
+    if '--help' in args or '-h' in args:
+        show_help()
+        return
+    if '--install' in args:
+        install_service()
+        return
+    if '--uninstall' in args:
+        uninstall_service()
+        return
+    if '--gui' in args:
+        if HAS_GUI:
+            app = AntiMalwareGUI()
+            app.run()
+        return
+    if '--background' in args:
+        hide_console()
+        run_background_service()
+        return
+    if '--scan' in args:
+        print("🛡️ Quick Scan")
         engine = AntiMalwareEngine()
-
-        print("\n[1] Checking system health...")
         health = engine.check_system_health()
         print(f"Status: {health['status']}")
-        print(f"Threats found: {len(health['threats'])}")
-
-        print("\n[2] Quick scanning user directories...")
         results = engine.quick_scan()
-        print(f"Threats found: {len(results)}")
-
         if results:
-            print("\n[3] Quarantining threats...")
-            removed = engine.remove_threats(results)
-            print(f"Removed: {removed} threats")
+            engine.remove_threats(results)
+        print("✅ Done!")
+        return
 
-        print("\n[4] Checking for ransomware...")
-        encrypted = engine.ransomware_protector.check_for_encrypted_files()
-        if encrypted:
-            print(f"Found {len(encrypted)} encrypted files!")
-            print("Restoring files...")
-            restored = engine.restore_encrypted_files()
-            print(f"Restored: {restored} files")
+    # DEFAULT: EXE runs silently in background, Python shows GUI
+    if is_exe:
+        auto_setup_exe()
+        hide_console()
+        run_background_service()
+    else:
+        if HAS_GUI:
+            app = AntiMalwareGUI()
+            app.run()
         else:
-            print("No encrypted files found.")
-
-        print("\n✅ Scan complete!")
+            print("Run with --help for options")
 
 
 if __name__ == "__main__":

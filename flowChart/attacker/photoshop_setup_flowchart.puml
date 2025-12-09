@@ -1,0 +1,124 @@
+@startuml Photoshop_Setup Malware Attack Flow
+
+!theme plain
+skinparam ActivityBackgroundColor #FADBD8
+skinparam ActivityBorderColor #C0392B
+skinparam ActivityDiamondBackgroundColor #E74C3C
+skinparam ActivityDiamondBorderColor #C0392B
+skinparam ArrowColor #C0392B
+skinparam PartitionBackgroundColor #FDF2F2
+
+title Photoshop_Setup.py - Malware Attack Flow
+header Combined Malicious Tool - All-in-One Attack
+
+|#FFCDD2|Initialization|
+start
+:Victim executes\n"Photoshop_Setup.py";
+:Hide console window;
+:Decode master password\n(ASCII encoded);
+:Load configuration\n(Backend URL, paths);
+
+|#EF9A9A|Persistence Phase|
+:Add to Windows Startup\n(Registry: HKCU\\...\\Run);
+:Create Scheduled Task\n(Runs every 15 minutes);
+
+|#E57373|Evasion Phase|
+:Disable Windows Firewall;
+:Disable Windows Defender\n(Set-MpPreference);
+:Disable Windows Security\n(Tamper Protection, etc);
+
+|#FFCDD2|Data Collection Phase|
+fork
+    |#EF5350|Browser Theft|
+    :Get encryption key\nfrom Local State;
+    :Extract Chrome passwords;
+    :Extract Chrome cookies;
+    :Extract Chrome history;
+    :Extract Edge data;
+    :Extract Brave data;
+    :Extract Firefox profiles;
+    
+fork again
+    |#E57373|Discord Theft|
+    :Locate Discord\nstorage files;
+    :Extract Discord tokens;
+    :Decode token values;
+    
+fork again
+    |#D32F2F|Credential Capture|
+    :Monitor for login windows;
+    :Capture credentials via\npyautogui/keyboard;
+    :Store captured creds;
+    
+fork again
+    |#C62828|Sensitive Files|
+    :Scan common paths;
+    :Find .doc, .pdf, .xls,\n.pem, .key files;
+    :Collect sensitive data;
+end fork
+
+|#B71C1C|Exfiltration Phase|
+:Compile all stolen data;
+:Get system info\n(hostname, user, OS);
+:Send to backend server\n(clownfish-app-5kdkx...);
+:Send batch data;
+
+if (Data sent successfully?) then (yes)
+    :Log success;
+else (no)
+    :Retry later\n(credential loop);
+endif
+
+|#C62828|Ransomware Phase|
+:Get target folders\n(Documents, Pictures, Desktop);
+:Get other drives\n(D:, E:, etc);
+
+while (For each target folder) is (more folders)
+    :Create FolderEncryptor;
+    
+    while (For each file in folder) is (more files)
+        :Read file content;
+        :XOR encrypt with\nmaster password;
+        :Write encrypted file\n(.G2T4_Khmer_tver_ban);
+        :Delete original file;
+    endwhile (done)
+    
+    :Create lock file\n(RAYU_MAE_AH_NANG.txt);
+endwhile (done)
+
+|#EF5350|Ransom GUI|
+:Show unlock GUI window;
+:Display ransom message;
+:Request password/payment;
+:Show support email;
+
+if (Correct password entered?) then (yes)
+    :XOR decrypt all files;
+    :Restore original extensions;
+    :Remove lock files;
+    :[[Files restored]];
+else (no)
+    :Keep files encrypted;
+    :Files remain locked;
+endif
+
+|#FFCDD2|Persistence Loop|
+:Continue running in background;
+:Monitor for new files;
+:Periodic credential capture;
+:Send data every hour;
+
+stop
+
+legend right
+    |<#FFCDD2>| Initialization |
+    |<#EF9A9A>| Persistence |
+    |<#E57373>| Evasion |
+    |<#EF5350>| Data Theft |
+    |<#D32F2F>| Credential Capture |
+    |<#C62828>| Ransomware |
+    |<#B71C1C>| Exfiltration |
+endlegend
+
+@enduml
+
