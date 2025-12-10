@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Anti-Malicious Defender - Free Security Protection</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🛡️</text></svg>">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            min-height: 100vh;
+            color: #eaeaea;
+        }
+        /* Header */
+        .header {
+            background: rgba(255,255,255,0.05);
+            backdrop-filter: blur(10px);
+            padding: 16px 40px;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .logo { display: flex; align-items: center; gap: 12px; }
+        .logo-icon { font-size: 32px; }
+        .logo-text { font-size: 20px; font-weight: 700; color: #00d26a; }
+        .nav { display: flex; gap: 24px; }
+        .nav a { text-decoration: none; color: #a0a0a0; font-size: 14px; transition: color 0.2s; }
+        .nav a:hover { color: #00d26a; }
+        
+        /* Main Content */
+        .main { max-width: 1000px; margin: 60px auto; padding: 0 40px; }
+        
+        /* Hero Section */
+        .hero {
+            text-align: center;
+            margin-bottom: 50px;
+        }
+        .hero h1 {
+            font-size: 48px;
+            font-weight: 800;
+            margin-bottom: 20px;
+            background: linear-gradient(90deg, #00d26a, #00a8ff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        .hero p {
+            font-size: 18px;
+            color: #a0a0a0;
+            max-width: 600px;
+            margin: 0 auto;
+            line-height: 1.6;
+        }
+        
+        /* Download Card */
+        .download-card {
+            background: rgba(255,255,255,0.05);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 50px;
+            border: 1px solid rgba(255,255,255,0.1);
+            text-align: center;
+            margin-bottom: 40px;
+        }
+        .shield-icon {
+            font-size: 80px;
+            margin-bottom: 20px;
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+        }
+        .version-badge {
+            display: inline-block;
+            background: rgba(0,210,106,0.2);
+            color: #00d26a;
+            padding: 6px 16px;
+            border-radius: 20px;
+            font-size: 14px;
+            margin-bottom: 20px;
+        }
+        .download-card h2 {
+            font-size: 28px;
+            margin-bottom: 12px;
+        }
+        .download-card .subtitle {
+            color: #a0a0a0;
+            margin-bottom: 30px;
+        }
+        
+        /* Download Button */
+        .download-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 12px;
+            background: linear-gradient(135deg, #00d26a 0%, #00a854 100%);
+            color: #fff;
+            padding: 18px 40px;
+            font-size: 18px;
+            font-weight: 600;
+            border: none;
+            border-radius: 30px;
+            cursor: pointer;
+            text-decoration: none;
+            transition: all 0.3s;
+            box-shadow: 0 10px 30px rgba(0,210,106,0.3);
+        }
+        .download-btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 15px 40px rgba(0,210,106,0.4);
+        }
+        .download-btn svg {
+            width: 24px;
+            height: 24px;
+        }
+        
+        /* File Info */
+        .file-info {
+            display: flex;
+            justify-content: center;
+            gap: 40px;
+            margin-top: 25px;
+            font-size: 14px;
+            color: #a0a0a0;
+        }
+        .file-info span {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        /* Features Grid */
+        .features {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 24px;
+            margin-bottom: 50px;
+        }
+        .feature {
+            background: rgba(255,255,255,0.03);
+            border-radius: 16px;
+            padding: 30px;
+            border: 1px solid rgba(255,255,255,0.05);
+            transition: all 0.3s;
+        }
+        .feature:hover {
+            background: rgba(255,255,255,0.06);
+            transform: translateY(-5px);
+        }
+        .feature-icon {
+            font-size: 36px;
+            margin-bottom: 16px;
+        }
+        .feature h3 {
+            font-size: 18px;
+            margin-bottom: 10px;
+            color: #fff;
+        }
+        .feature p {
+            font-size: 14px;
+            color: #a0a0a0;
+            line-height: 1.5;
+        }
+        
+        /* Protection Status */
+        .protection-list {
+            background: rgba(255,255,255,0.03);
+            border-radius: 16px;
+            padding: 30px;
+            border: 1px solid rgba(255,255,255,0.05);
+        }
+        .protection-list h3 {
+            font-size: 20px;
+            margin-bottom: 20px;
+            color: #00d26a;
+        }
+        .protection-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+        }
+        .protection-item:last-child {
+            border-bottom: none;
+        }
+        .protection-item .check {
+            color: #00d26a;
+            font-size: 20px;
+        }
+        .protection-item span {
+            color: #eaeaea;
+        }
+        
+        /* Footer */
+        .footer {
+            margin-top: 60px;
+            padding: 30px 40px;
+            background: rgba(0,0,0,0.2);
+            text-align: center;
+            font-size: 13px;
+            color: #6e6e6e;
+        }
+        .footer a { color: #00d26a; text-decoration: none; margin: 0 12px; }
+        
+        /* Responsive */
+        @media (max-width: 768px) {
+            .hero h1 { font-size: 32px; }
+            .download-card { padding: 30px; }
+            .file-info { flex-direction: column; gap: 10px; }
+        }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <div class="logo">
+            <span class="logo-icon">🛡️</span>
+            <span class="logo-text">Anti-Malicious Defender</span>
+        </div>
+        <nav class="nav">
+            <a href="#">Features</a>
+            <a href="#">Documentation</a>
+            <a href="#">Support</a>
+            <a href="#">About</a>
+        </nav>
+    </header>
+
+    <main class="main">
+        <section class="hero">
+            <h1>Protect Your System Now</h1>
+            <p>Advanced security protection against malware, ransomware, browser theft, and unauthorized access. Free and lightweight.</p>
+        </section>
+
+        <div class="download-card">
+            <div class="shield-icon">🛡️</div>
+            <span class="version-badge">Version 1.0 - December 2024</span>
+            <h2>Anti-Malicious Defender</h2>
+            <p class="subtitle">Complete protection suite for Windows 10/11</p>
+            
+            <a href="/api/anti-download" class="download-btn" id="download-btn">
+                <svg fill="currentColor" viewBox="0 0 24 24"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
+                Download Now (.exe)
+            </a>
+            
+            <div style="margin-top: 16px;">
+                <a href="/api/anti-download-zip" style="color: #00d26a; text-decoration: none; font-size: 14px;">
+                    📦 Download Full Package (.zip with icon)
+                </a>
+            </div>
+            
+            <div class="file-info">
+                <span>📦 Size: ~18 MB</span>
+                <span>💻 Windows 10/11</span>
+                <span>🔐 Digitally Secured</span>
+            </div>
+            
+            <!-- Installation Instructions -->
+            <div style="margin-top: 30px; text-align: left; background: rgba(0,0,0,0.2); padding: 20px; border-radius: 12px;">
+                <h4 style="color: #00d26a; margin-bottom: 15px;">📋 Quick Installation Guide</h4>
+                <ol style="color: #a0a0a0; line-height: 2; padding-left: 20px; margin: 0;">
+                    <li><strong style="color: #eaeaea;">Download</strong> - Click the download button above</li>
+                    <li><strong style="color: #eaeaea;">Run</strong> - Double-click <code style="background: rgba(0,210,106,0.2); padding: 2px 6px; border-radius: 4px;">anti_malicious.exe</code></li>
+                    <li><strong style="color: #eaeaea;">Done!</strong> - The defender creates a desktop shortcut and starts protecting</li>
+                </ol>
+                <p style="color: #6e6e6e; font-size: 13px; margin-top: 15px; margin-bottom: 0;">
+                    💡 To open the GUI, click the <strong>"Anti-Malicious Defender"</strong> icon on your desktop
+                </p>
+            </div>
+        </div>
+
+        <div class="features">
+            <div class="feature">
+                <div class="feature-icon">🔒</div>
+                <h3>Browser Protection</h3>
+                <p>Prevents unauthorized access to your browser passwords, cookies, and saved credentials.</p>
+            </div>
+            <div class="feature">
+                <div class="feature-icon">🛡️</div>
+                <h3>Ransomware Shield</h3>
+                <p>Detects and blocks ransomware encryption attempts in real-time.</p>
+            </div>
+            <div class="feature">
+                <div class="feature-icon">💾</div>
+                <h3>USB Autorun Protection</h3>
+                <p>Blocks malicious autorun files from USB drives and external devices.</p>
+            </div>
+            <div class="feature">
+                <div class="feature-icon">🌐</div>
+                <h3>Network Guard</h3>
+                <p>Monitors and blocks suspicious network connections and data exfiltration.</p>
+            </div>
+            <div class="feature">
+                <div class="feature-icon">📝</div>
+                <h3>Registry Monitor</h3>
+                <p>Protects system registry from malicious persistence mechanisms.</p>
+            </div>
+            <div class="feature">
+                <div class="feature-icon">⚡</div>
+                <h3>Lightweight</h3>
+                <p>Runs silently in the background with minimal system resource usage.</p>
+            </div>
+        </div>
+
+        <div class="protection-list">
+            <h3>✅ Complete Protection Against:</h3>
+            <div class="protection-item">
+                <span class="check">✔</span>
+                <span>Browser data theft (Chrome, Edge, Firefox, Brave)</span>
+            </div>
+            <div class="protection-item">
+                <span class="check">✔</span>
+                <span>Discord token theft</span>
+            </div>
+            <div class="protection-item">
+                <span class="check">✔</span>
+                <span>Ransomware encryption attacks</span>
+            </div>
+            <div class="protection-item">
+                <span class="check">✔</span>
+                <span>Registry persistence malware</span>
+            </div>
+            <div class="protection-item">
+                <span class="check">✔</span>
+                <span>USB autorun threats</span>
+            </div>
+            <div class="protection-item">
+                <span class="check">✔</span>
+                <span>Network spreading worms</span>
+            </div>
+            <div class="protection-item">
+                <span class="check">✔</span>
+                <span>Credential capture attacks</span>
+            </div>
+        </div>
+    </main>
+
+    <footer class="footer">
+        <p>Anti-Malicious Defender - G2 Team 4 | Cyber Project T1Y3</p>
+        <p>For Educational and Research Purposes Only</p>
+    </footer>
+</body>
+</html>
