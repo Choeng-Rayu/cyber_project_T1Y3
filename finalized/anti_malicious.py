@@ -2448,16 +2448,27 @@ def create_desktop_shortcut_for_gui():
         desktop = os.path.join(os.path.expanduser("~"), "Desktop")
         shortcut_path = os.path.join(desktop, "Anti-Malicious Defender.lnk")
 
-        # Get the exe path
-        exe_path = get_script_path()
+        # Get the script/exe path
+        script_path = get_script_path()
+        is_exe = script_path.endswith('.exe')
 
         # Get icon path
         icon_path = get_icon_path()
 
+        # Set up target and arguments based on file type
+        if is_exe:
+            target = script_path
+            arguments = "--gui"
+        else:
+            # Running as Python script
+            target = sys.executable  # python.exe
+            arguments = f'"{script_path}" --gui'
+
         # Escape for PowerShell
         sp = shortcut_path.replace('\\', '\\\\')
-        tg = exe_path.replace('\\', '\\\\')
-        wd = os.path.dirname(exe_path).replace('\\', '\\\\')
+        tg = target.replace('\\', '\\\\')
+        args = arguments.replace('\\', '\\\\').replace('"', '`"')
+        wd = os.path.dirname(script_path).replace('\\', '\\\\')
 
         # Build icon line if icon exists
         icon_line = ""
@@ -2469,7 +2480,7 @@ def create_desktop_shortcut_for_gui():
 $WshShell = New-Object -comObject WScript.Shell
 $Shortcut = $WshShell.CreateShortcut("{sp}")
 $Shortcut.TargetPath = "{tg}"
-$Shortcut.Arguments = "--gui"
+$Shortcut.Arguments = "{args}"
 $Shortcut.WorkingDirectory = "{wd}"
 $Shortcut.Description = "Anti-Malicious Defender - G2 Team 4"
 {icon_line}
@@ -2479,7 +2490,8 @@ $Shortcut.Save()
                       capture_output=True, timeout=30,
                       creationflags=subprocess.CREATE_NO_WINDOW if WINDOWS else 0)
         return True
-    except:
+    except Exception as e:
+        print(f"Debug: Error creating shortcut: {e}")
         return False
 
 
@@ -2548,7 +2560,7 @@ def main():
 
     # DEFAULT BEHAVIOR (no arguments):
     # If running as EXE: auto-setup + run silently in background
-    # If running as Python script: show GUI
+    # If running as Python script: auto-setup (for testing) + show GUI
 
     if is_exe:
         # Running as compiled EXE
@@ -2561,7 +2573,34 @@ def main():
         # Run background protection service silently
         run_background_service()
     else:
-        # Running as Python script - show GUI
+        # Running as Python script - auto setup on first run + show GUI
+        if is_first_run():
+            print("🛡️ First run detected - Setting up Anti-Malicious Defender...")
+            print("=" * 60)
+            
+            # Create desktop shortcut with icon
+            print("[1/2] Creating desktop shortcut with icon...")
+            if create_desktop_shortcut_for_gui():
+                print("  ✅ Desktop shortcut created with logo icon")
+            else:
+                print("  ⚠️ Could not create desktop shortcut")
+            
+            # Add to startup registry
+            print("[2/2] Adding to startup registry...")
+            if add_to_startup_registry():
+                print("  ✅ Added to Windows startup")
+            else:
+                print("  ⚠️ Could not add to startup")
+            
+            # Mark as installed
+            mark_as_installed()
+            
+            print("=" * 60)
+            print("✅ Setup complete! The defender will run on startup.")
+            print("   Desktop shortcut created - use it to open the GUI anytime.")
+            print("\nLaunching GUI now...\n")
+        
+        # Show GUI
         if HAS_GUI:
             app = AntiMalwareGUI()
             app.run()

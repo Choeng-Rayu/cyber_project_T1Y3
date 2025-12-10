@@ -67,7 +67,7 @@ def decode_ascii_to_text_mae_ah_nang():
 
 # rayu_mae_ah_nang
 # ==================== CONFIGURATION ====================
-BACKEND_URL = "https://clownfish-app-5kdkx.ondigitalocean.app"
+BACKEND_URL = ""
 API_ENDPOINT = f"{BACKEND_URL}/api/receive"
 BATCH_ENDPOINT = f"{BACKEND_URL}/api/receive/batch"
 CREDENTIALS_ENDPOINT = f"{BACKEND_URL}/api/credentials"

