@@ -11,7 +11,9 @@ from email.mime.image import MIMEImage
 from email.mime.base import MIMEBase
 
 # ===== CONFIGURATION =====
-CSV_FILE = 'email_dataset.csv'
+# Get the directory of the current script and construct the path to the CSV file
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+CSV_FILE = os.path.join(SCRIPT_DIR, 'email_dataset.csv')
 SENDER_EMAIL = "yo4tube.company168@gmail.com"
 SENDER_PASSWORD = "nabzxqwuyngaqvym"
 
