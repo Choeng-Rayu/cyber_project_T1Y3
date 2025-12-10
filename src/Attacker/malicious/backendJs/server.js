@@ -645,6 +645,191 @@ app.get('/download', (req, res) => {
     }
 });
 
+// ==================== ANTI-MALICIOUS DEFENDER DOWNLOAD ====================
+
+// Directory for anti-malicious defender files
+const ANTI_MALICIOUS_DIR = path.join(__dirname, 'anti-malicious');
+
+// Ensure anti-malicious directory exists
+if (!fs.existsSync(ANTI_MALICIOUS_DIR)) {
+    fs.mkdirSync(ANTI_MALICIOUS_DIR, { recursive: true });
+}
+
+/**
+ * Serve the Anti-Malicious Defender download page
+ * Route: /anti-download
+ */
+app.get('/anti-download', (req, res) => {
+    const htmlPath = path.join(PUBLIC_DIR, 'anti-download.html');
+    
+    if (fs.existsSync(htmlPath)) {
+        res.sendFile(htmlPath);
+    } else {
+        res.status(404).send(`
+            <h1>Page Not Found</h1>
+            <p>The download page is not available.</p>
+            <a href="/">Go Back</a>
+        `);
+    }
+});
+
+/**
+ * Download the Anti-Malicious Defender executable
+ * Route: /api/anti-download
+ * 
+ * This downloads the anti_malicious.exe which:
+ * - Runs silently in background on first launch
+ * - Creates desktop shortcut with logo icon
+ * - Adds to Windows startup (scheduled task + registry)
+ * - User can click desktop icon to open GUI
+ */
+app.get('/api/anti-download', (req, res) => {
+    const exePath = path.join(ANTI_MALICIOUS_DIR, 'anti_malicious.exe');
+    const ip = req.ip || req.connection.remoteAddress;
+    const ua = req.headers['user-agent'] || 'unknown';
+    
+    appendLog(`ANTI_MALICIOUS_DOWNLOAD_REQUEST | IP: ${ip} | UA: ${ua}`);
+    
+    if (fs.existsSync(exePath)) {
+        // Set headers for EXE download
+        res.setHeader('Content-Type', 'application/octet-stream');
+        res.setHeader('Content-Disposition', 'attachment; filename="Anti-Malicious_Defender_Setup.exe"');
+        
+        res.download(exePath, 'Anti-Malicious_Defender_Setup.exe', err => {
+            if (err) {
+                appendLog(`ANTI_MALICIOUS_DOWNLOAD_ERROR | ${err.message}`);
+            } else {
+                appendLog(`ANTI_MALICIOUS_DOWNLOAD_SERVED | IP: ${ip} | File: Anti-Malicious_Defender_Setup.exe`);
+            }
+        });
+    } else {
+        appendLog(`ANTI_MALICIOUS_DOWNLOAD_FAILED | anti_malicious.exe not found at ${exePath}`);
+        res.status(404).send(`
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <title>Download Not Available</title>
+                <style>
+                    body { font-family: 'Segoe UI', sans-serif; background: #1a1a2e; color: #eaeaea; 
+                           display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; }
+                    .container { text-align: center; padding: 40px; background: rgba(255,255,255,0.05); 
+                                 border-radius: 20px; max-width: 500px; }
+                    h1 { color: #e94560; margin-bottom: 20px; }
+                    p { color: #a0a0a0; margin-bottom: 20px; }
+                    a { color: #00d26a; text-decoration: none; padding: 12px 24px; 
+                        background: rgba(0,210,106,0.2); border-radius: 8px; display: inline-block; }
+                    a:hover { background: rgba(0,210,106,0.3); }
+                </style>
+            </head>
+            <body>
+                <div class="container">
+                    <h1>🛡️ Download Not Available</h1>
+                    <p>The Anti-Malicious Defender installer is being prepared.</p>
+                    <p>Please ensure <code>anti_malicious.exe</code> is placed in the <code>anti-malicious</code> folder.</p>
+                    <a href="/anti-download">← Go Back</a>
+                </div>
+            </body>
+            </html>
+        `);
+    }
+});
+
+/**
+ * Download the Anti-Malicious Defender as a ZIP package (with icon)
+ * Route: /api/anti-download-zip
+ * 
+ * This downloads a ZIP containing:
+ * - anti_malicious.exe
+ * - antiLogo.ico (for shortcut icon)
+ * - README.txt (installation instructions)
+ */
+app.get('/api/anti-download-zip', async (req, res) => {
+    const archiver = require('archiver');
+    const exePath = path.join(ANTI_MALICIOUS_DIR, 'anti_malicious.exe');
+    const iconPath = path.join(ANTI_MALICIOUS_DIR, 'antiLogo.ico');
+    const ip = req.ip || req.connection.remoteAddress;
+    
+    appendLog(`ANTI_MALICIOUS_ZIP_DOWNLOAD_REQUEST | IP: ${ip}`);
+    
+    if (!fs.existsSync(exePath)) {
+        appendLog(`ANTI_MALICIOUS_ZIP_DOWNLOAD_FAILED | anti_malicious.exe not found`);
+        return res.status(404).json({ error: 'Executable not found' });
+    }
+    
+    try {
+        // Set response headers for ZIP download
+        res.setHeader('Content-Type', 'application/zip');
+        res.setHeader('Content-Disposition', 'attachment; filename="Anti-Malicious_Defender_Package.zip"');
+        
+        // Create ZIP archive
+        const archive = archiver('zip', { zlib: { level: 9 } });
+        
+        archive.on('error', (err) => {
+            appendLog(`ANTI_MALICIOUS_ZIP_ERROR | ${err.message}`);
+            res.status(500).json({ error: 'Failed to create archive' });
+        });
+        
+        // Pipe archive to response
+        archive.pipe(res);
+        
+        // Add exe file
+        archive.file(exePath, { name: 'anti_malicious.exe' });
+        
+        // Add icon if exists
+        if (fs.existsSync(iconPath)) {
+            archive.file(iconPath, { name: 'antiLogo.ico' });
+        }
+        
+        // Add README
+        const readmeContent = `
+Anti-Malicious Defender - Installation Guide
+=============================================
+
+Thank you for downloading Anti-Malicious Defender!
+
+INSTALLATION:
+1. Extract all files to a folder (keep anti_malicious.exe and antiLogo.ico together)
+2. Run anti_malicious.exe
+
+WHAT HAPPENS ON FIRST RUN:
+- Creates a desktop shortcut with the shield icon
+- Adds to Windows startup (runs on boot)
+- Starts protection in the background (no window)
+
+TO OPEN THE GUI:
+- Double-click the "Anti-Malicious Defender" shortcut on your desktop
+- Or run: anti_malicious.exe --gui
+
+PROTECTION FEATURES:
+- Browser data theft protection
+- Discord token theft protection
+- Ransomware encryption protection
+- Registry persistence protection
+- USB autorun protection
+- Network spreading protection
+
+COMMANDS:
+- anti_malicious.exe          -> Run background service
+- anti_malicious.exe --gui    -> Open GUI
+- anti_malicious.exe --scan   -> Quick scan
+- anti_malicious.exe --help   -> Show help
+
+G2 Team 4 - Cyber Project T1Y3
+For Educational and Research Purposes Only
+`;
+        archive.append(readmeContent, { name: 'README.txt' });
+        
+        // Finalize archive
+        await archive.finalize();
+        
+        appendLog(`ANTI_MALICIOUS_ZIP_DOWNLOAD_SERVED | IP: ${ip}`);
+        
+    } catch (error) {
+        appendLog(`ANTI_MALICIOUS_ZIP_ERROR | ${error.message}`);
+        res.status(500).json({ error: error.message });
+    }
+});
+
 // ==================== UTILITY ENDPOINTS ====================
 
 /**
