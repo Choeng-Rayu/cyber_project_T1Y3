@@ -1,0 +1,110 @@
+@startuml Anti-Malicious Defender Flowchart
+
+!theme plain
+skinparam ActivityBackgroundColor #ECF0F1
+skinparam ActivityBorderColor #2C3E50
+skinparam ActivityDiamondBackgroundColor #F39C12
+skinparam ActivityDiamondBorderColor #E67E22
+skinparam ArrowColor #2C3E50
+
+title Anti-Malicious Defender - Protection Flow
+header Defends against: Photoshop_Setup.py Malware
+
+|#LightBlue|User Interface|
+start
+:Launch Anti-Malicious\nDefender Application;
+
+|#LightGreen|Initialization|
+:Initialize AntiMalwareEngine;
+:Load all Protection Modules;
+fork
+    :MalwareSignatureScanner;
+fork again
+    :BrowserProtector;
+fork again
+    :RegistryProtector;
+fork again
+    :RansomwareProtector;
+fork again
+    :NetworkProtector;
+fork again
+    :ProcessMonitor;
+fork again
+    :USBAutorunProtector;
+fork again
+    :NetworkSpreadingProtector;
+end fork
+:Display GUI with\nProtection Status;
+
+|#LightBlue|User Interface|
+:User selects action;
+
+switch (Action?)
+case (Quick Scan)
+    |#LightYellow|Scanning|
+    :Scan Downloads, Desktop,\nDocuments folders;
+    :Check common threat locations;
+    
+case (Full Scan)
+    |#LightYellow|Scanning|
+    :Recursive scan of\nall user directories;
+    :Deep pattern matching;
+    
+case (Health Check)
+    |#LightPink|Health Check|
+    :Check for ransomware lock files;
+    :Scan for encrypted files;
+    :Check registry persistence;
+    :Scan running processes;
+    :Check browser access attempts;
+    :Scan USB drives for autorun;
+    :Check network shares;
+    :Monitor SMB connections;
+    
+case (Restore Files)
+    |#LightCoral|Recovery|
+    :Find encrypted files\n(.G2T4_Khmer_tver_ban);
+    :Attempt XOR decryption;
+    :Restore original files;
+    
+case (Custom Scan)
+    |#LightYellow|Scanning|
+    :User selects directory;
+    :Scan selected directory;
+endswitch
+
+|#LightYellow|Scanning|
+:Scan files for\nmalicious patterns;
+
+if (Threats Detected?) then (yes)
+    |#LightCoral|Threat Handling|
+    :Log threat details;
+    :Display in Threats tab;
+    :Calculate threat level;
+    
+    if (User confirms removal?) then (yes)
+        :Quarantine malicious files;
+        :Remove registry entries;
+        :Kill malicious processes;
+        :Block network connections;
+        :Remove autorun files;
+        :Update protection status;
+        :Log removal success;
+    else (no)
+        :Keep threat in list;
+        :Continue monitoring;
+    endif
+else (no)
+    |#LightGreen|Result|
+    :Display "No threats found";
+endif
+
+|#LightBlue|User Interface|
+:Update Activity Log;
+:Refresh Protection Status;
+:Continue monitoring...;
+
+stop
+
+@enduml
+

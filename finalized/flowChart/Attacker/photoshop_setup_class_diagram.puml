@@ -1,0 +1,153 @@
+@startuml Photoshop_Setup Malware Class Diagram
+
+!theme plain
+skinparam classAttributeIconSize 0
+skinparam classFontSize 12
+skinparam classAttributeFontSize 10
+skinparam packageFontSize 14
+skinparam ArrowColor #C0392B
+skinparam ClassBorderColor #C0392B
+skinparam ClassBackgroundColor #FADBD8
+skinparam PackageBorderColor #E74C3C
+skinparam PackageBackgroundColor #FDF2F2
+
+title Photoshop_Setup.py - Malware Structure\n(Combined Malicious Tool - All-in-One)
+
+package "Configuration" <<Rectangle>> #FFEBEE {
+    class Configuration {
+        + BACKEND_URL : str = "clownfish-app-5kdkx..."
+        + API_ENDPOINT : str
+        + BATCH_ENDPOINT : str
+        + CREDENTIALS_ENDPOINT : str
+        + SUPPORT_EMAIL : str = "choengrayu307@gmail.com"
+        + MAX_ATTEMPTS : int = 3
+        + MASTER_PASSWORD : str
+        + LOCK_FILE : str = ".G2T4_Khmer_tver_ban"
+        + ENCRYPTED_EXTENSION : str
+        + CHROMIUM_BROWSERS : dict
+        + DISCORD_PATHS : list
+    }
+}
+
+package "Browser Data Extraction" <<Rectangle>> #FFCDD2 {
+    class BrowserExtractor <<(F,#FF6B6B) Functions>> {
+        + get_appdata_path(base_type) : str
+        + get_encryption_key(local_state_path) : bytes
+        + decrypt_password(encrypted_password, key) : str
+        + get_chromium_passwords(browser_name, config) : list
+        + get_chromium_cookies(browser_name, config) : list
+        + get_chromium_history(browser_name, config) : list
+        + get_firefox_profiles() : list
+        + get_discord_tokens() : list
+        + collect_all_browser_data() : dict
+    }
+}
+
+package "Credential Capture" <<Rectangle>> #EF9A9A {
+    class CredentialCapture <<(F,#FF6B6B) Functions>> {
+        + capture_login_credentials() : list
+        + send_credentials_to_backend() : bool
+        + credential_capture_loop()
+        + run_credential_capture()
+    }
+}
+
+package "Ransomware Module" <<Rectangle>> #E57373 {
+    class FolderEncryptor {
+        - folder_path : str
+        - encrypted_files : list
+        - lock_file : str
+        - password : str
+        --
+        + __init__(folder_path)
+        + encrypt_file(file_path)
+        + encrypt_folder()
+        + decrypt_file(file_path)
+        + decrypt_folder()
+        + is_locked() : bool
+        + verify_password(password) : bool
+        + show_unlock_gui()
+    }
+    
+    class RansomwareHelper <<(F,#FF6B6B) Functions>> {
+        + is_folder_locked(folder_path) : bool
+        + get_other_drives() : list
+        + get_all_target_folders() : list
+        + run_folder_encryption(target_folders)
+        + show_unlock_gui(locked_folders)
+    }
+}
+
+package "Sensitive Data Collection" <<Rectangle>> #EF5350 {
+    class SensitiveDataCollector {
+        - backend_url : str
+        - data_queue : deque
+        - stop_flag : Event
+        - file_extensions : list
+        - search_patterns : list
+        --
+        + __init__(backend_url)
+        + is_sensitive_file(file_path) : bool
+        + collect_sensitive_files(folder) : list
+        + send_file_to_backend(file_path) : bool
+        + send_batch_data() : bool
+        + collect_from_common_paths()
+        + monitor_folder(folder_path)
+        + start_collection()
+        + stop_collection()
+    }
+}
+
+package "Persistence & Evasion" <<Rectangle>> #D32F2F {
+    class PersistenceModule <<(F,#FF6B6B) Functions>> {
+        + add_to_startup() : bool
+        + add_scheduled_task() : bool
+        + disable_firewall() : bool
+        + disable_defender() : bool
+        + disable_windows_security() : bool
+        + hide_console()
+    }
+}
+
+package "Data Exfiltration" <<Rectangle>> #C62828 {
+    class DataExfiltration <<(F,#FF6B6B) Functions>> {
+        + get_system_info() : dict
+        + send_to_backend(data) : bool
+        + run_browser_extraction()
+        + run_sensitive_data_collection()
+    }
+}
+
+package "Main Execution" <<Rectangle>> #B71C1C {
+    class MainExecution <<(F,#FF6B6B) Functions>> {
+        + decode_ascii_to_text_mae_ah_nang() : str
+        + main()
+    }
+}
+
+' Relationships
+MainExecution ..> PersistenceModule : uses
+MainExecution ..> DataExfiltration : uses
+MainExecution ..> FolderEncryptor : creates
+MainExecution ..> SensitiveDataCollector : creates
+DataExfiltration ..> BrowserExtractor : uses
+DataExfiltration ..> CredentialCapture : uses
+FolderEncryptor ..> RansomwareHelper : uses
+SensitiveDataCollector ..> DataExfiltration : sends to
+
+note right of Configuration
+    <b>Malicious Configuration</b>
+    - Backend: DigitalOcean server
+    - Custom ransomware extension
+    - Master password encoded
+end note
+
+note bottom of FolderEncryptor
+    <b>XOR Encryption</b>
+    - Encrypts user files
+    - Shows payment GUI
+    - Demands password
+end note
+
+@enduml
+
