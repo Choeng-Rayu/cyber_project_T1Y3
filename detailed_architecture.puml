@@ -1,0 +1,726 @@
+@startuml Combined_Malicious_Tool_Architecture
+!theme cerulean-outline
+title Combined Malicious Tool - System Architecture & Analysis
+
+' ====== LEGEND ======
+legend top left
+  **Malware Components Analysis**
+  Educational/Research Purpose Only
+  |= Color |= Component Type |
+  |<#LightBlue> | Data Extraction |
+  |<#LightCoral> | Encryption/Ransomware |
+  |<#LightGreen> | Persistence |
+  |<#LightYellow> | Security Evasion |
+  |<#LightPink> | GUI/User Interaction |
+  |<#Lavender> | Monitoring |
+endlegend
+
+' ====== MAIN COMPONENTS ======
+package "Main Execution Flow" #WhiteSmoke {
+  component [main()] as main #Orange
+  component [hide_console()] as hide
+}
+
+package "Security Evasion" #LightYellow {
+  component [disable_firewall()] as firewall
+  component [disable_defender()] as defender
+  component [disable_windows_security()] as security
+  note right of security
+    - Disables Windows Defender
+    - Disables SmartScreen
+    - Disables UAC
+    - Stops Security Services
+  end note
+}
+
+package "Persistence Mechanisms" #LightGreen {
+  component [add_to_startup()] as startup
+  component [add_scheduled_task()] as scheduled
+  note right of scheduled
+    Creates scheduled task:
+    "WindowsSecurityUpdate"
+    Runs on logon with highest privileges
+  end note
+}
+
+package "Browser Data Extraction" #LightBlue {
+  component [collect_all_browser_data()] as browser_collect
+  
+  package "Chromium Browsers" {
+    component [get_chromium_passwords()] as chrome_pwd
+    component [get_chromium_cookies()] as chrome_cookie
+    component [get_chromium_history()] as chrome_hist
+    component [get_encryption_key()] as chrome_key
+    component [decrypt_password()] as chrome_decrypt
+  }
+  
+  package "Token Extraction" {
+    component [get_discord_tokens()] as discord
+  }
+  
+  note right of browser_collect
+    Supported Browsers:
+    - Chrome, Brave, Edge
+    - Opera, Opera GX
+    - Vivaldi, Firefox
+  end note
+}
+
+package "Credential Capture Service" #LightBlue {
+  component [capture_login_credentials()] as capture_creds
+  component [send_credentials_to_backend()] as send_creds
+  component [credential_capture_loop()] as cred_loop
+  component [run_credential_capture()] as run_creds
+  
+  note right of cred_loop
+    Runs every 1 hour (3600s)
+    Filters login-related URLs
+    Thread-safe storage
+  end note
+}
+
+package "Sensitive Data Collection" #LightBlue {
+  class SensitiveDataCollector {
+    +collect_all()
+    +scan_directory()
+    +extract_file_content()
+    +collect_wifi_passwords()
+    +send_to_backend()
+    +send_in_batches()
+  }
+  
+  note right of SensitiveDataCollector
+    Targets:
+    - Documents, Desktop, Downloads
+    - .env, .txt, .pdf, .doc files
+    - SSH keys, certificates
+    - Database files
+    - WiFi passwords
+    - Extract file contents (<500KB)
+  end note
+}
+
+package "Folder Encryption (Ransomware)" #LightCoral {
+  class FolderEncryptor {
+    -password: MASTER_PASSWORD
+    -key: SHA256
+    +encrypt_folder()
+    +decrypt_folder()
+  }
+  
+  component [get_all_target_folders()] as get_folders
+  component [run_folder_encryption()] as encrypt
+  
+  note right of FolderEncryptor
+    Encryption Method:
+    - Renames files with .G2T4_Khmer_tver_ban
+    - Creates lock file
+    - Fast encryption (rename-based)
+    
+    Targets:
+    - Documents, Desktop, Downloads, Pictures
+    - All drives except C: (D, E, etc.)
+  end note
+}
+
+package "Folder Monitoring" #Lavender {
+  class LockedFolderHandler {
+    -locked_folders
+    -on_access_callback
+    +on_any_event()
+  }
+  
+  class FolderAccessMonitorThread {
+    -observer: Observer
+    +run()
+    +stop()
+  }
+  
+  note right of FolderAccessMonitorThread
+    Uses watchdog library
+    Monitors locked folders
+    Triggers GUI on access attempt
+    5 second cooldown
+  end note
+}
+
+package "GUI System" #LightPink {
+  class MultiFolderLockerGUI {
+    -folder_paths
+    -attempts: 0
+    -max_attempts: 3
+    -lockout_duration: 600s
+    +unlock_folders()
+    +show_forgot_password()
+    +on_close()
+  }
+  
+  note right of MultiFolderLockerGUI
+    Features:
+    - Password entry (3 attempts)
+    - 10 minute lockout after failures
+    - Cannot close without password
+    - Contact support option
+  end note
+}
+
+package "Backend Communication" #CornflowerBlue {
+  component [send_to_backend()] as send_backend
+  
+  database "Remote Server" as backend {
+    [/api/browser-data]
+    [/api/receive]
+    [/api/receive/batch]
+    [/api/credentials]
+  }
+  
+  note right of backend
+    Base URL:
+    clownfish-app-5kdkx.ondigitalocean.app
+    
+    Exfiltrated Data:
+    - Browser passwords
+    - Cookies & tokens
+    - Browser history
+    - Sensitive files (with contents)
+    - WiFi passwords
+    - Login credentials
+  end note
+}
+
+package "Configuration" #Gainsboro {
+  component [MASTER_PASSWORD] as master_pwd
+  component [CHROMIUM_BROWSERS] as browsers
+  component [SENSITIVE_EXTENSIONS] as extensions
+  component [BACKEND_URL] as backend_url
+  
+  note right of master_pwd
+    Password: "rayu_mae_ah_nang"
+    (decoded from ASCII)
+    
+    Support: choengrayu307@gmail.com
+  end note
+}
+
+' ====== RELATIONSHIPS ======
+
+' Main flow
+main --> hide : 1. Hide console
+main --> firewall : 2. Disable firewall
+main --> defender : 3. Disable defender
+main --> security : 4. Disable security
+main --> startup : 5. Add to startup
+main --> scheduled : 6. Add scheduled task
+main --> browser_collect : 7. Extract browser data (thread)
+main --> SensitiveDataCollector : 8. Collect files (thread)
+main --> run_creds : 9. Start credential service (thread)
+main --> encrypt : 10. Encrypt folders
+main --> MultiFolderLockerGUI : 11. Show unlock GUI
+main --> FolderAccessMonitorThread : 12. Start monitor
+
+' Browser extraction flow
+browser_collect --> chrome_pwd
+browser_collect --> chrome_cookie
+browser_collect --> chrome_hist
+browser_collect --> discord
+chrome_pwd --> chrome_key
+chrome_pwd --> chrome_decrypt
+browser_collect --> send_backend
+
+' Credential capture flow
+run_creds --> cred_loop
+cred_loop --> capture_creds
+cred_loop --> send_creds
+capture_creds --> chrome_pwd : "Reuses browser extraction"
+send_creds --> backend : "Every 1 hour"
+
+' Sensitive data flow
+SensitiveDataCollector --> send_backend
+
+' Encryption flow
+encrypt --> get_folders
+get_folders --> FolderEncryptor
+FolderEncryptor ..> master_pwd : "Uses"
+
+' Monitoring flow
+FolderAccessMonitorThread --> LockedFolderHandler
+LockedFolderHandler --> MultiFolderLockerGUI : "Trigger on access"
+
+' GUI flow
+MultiFolderLockerGUI --> FolderEncryptor : "Decrypt on correct password"
+
+' Backend communication
+send_backend --> backend
+SensitiveDataCollector --> backend
+
+' Configuration usage
+browsers ..> browser_collect
+extensions ..> SensitiveDataCollector
+backend_url ..> send_backend
+master_pwd ..> FolderEncryptor
+
+@enduml
+
+@startuml Execution_Timeline
+!theme cerulean-outline
+title Malware Execution Timeline
+
+participant "Main" as main
+participant "Security\nEvasion" as security
+participant "Persistence" as persist
+participant "Browser\nExtraction" as browser
+participant "File\nCollection" as files
+participant "Credential\nCapture" as creds
+participant "Encryption" as encrypt
+participant "GUI" as gui
+participant "Monitor" as monitor
+participant "Backend\nServer" as backend
+
+activate main
+
+main -> security : Disable all security
+activate security
+security -> security : Disable firewall
+security -> security : Disable Defender
+security -> security : Disable UAC & SmartScreen
+security -> security : Stop security services
+deactivate security
+
+main -> persist : Setup persistence
+activate persist
+persist -> persist : Add registry startup
+persist -> persist : Create scheduled task
+deactivate persist
+
+main -> browser ** : Start thread
+activate browser
+browser -> browser : Extract passwords
+browser -> browser : Extract cookies
+browser -> browser : Extract history
+browser -> browser : Extract Discord tokens
+browser -> backend : Send data
+deactivate browser
+
+main -> files ** : Start thread
+activate files
+files -> files : Scan Documents
+files -> files : Scan Desktop
+files -> files : Scan Downloads
+files -> files : Extract .env files
+files -> files : Extract .txt files
+files -> files : Collect WiFi passwords
+files -> backend : Send in batches
+deactivate files
+
+main -> creds ** : Start thread (daemon)
+activate creds
+loop Every 1 hour
+  creds -> creds : Capture login credentials
+  creds -> backend : Send credentials
+end
+
+main -> encrypt : Encrypt folders
+activate encrypt
+encrypt -> encrypt : Encrypt Documents
+encrypt -> encrypt : Encrypt Desktop
+encrypt -> encrypt : Encrypt Downloads
+encrypt -> encrypt : Encrypt Pictures
+encrypt -> encrypt : Encrypt D:\\ drive
+encrypt -> encrypt : Encrypt other drives
+deactivate encrypt
+
+main -> gui : Show unlock GUI
+activate gui
+gui -> gui : Wait for password
+note right: Blocks until\ncorrect password\nor 3 failed attempts
+
+alt Correct password entered
+  gui -> encrypt : Decrypt folders
+  gui -> main : Continue
+else Wrong password (3x)
+  gui -> gui : Lockout for 10 minutes
+  gui -> gui : Show password again
+end
+deactivate gui
+
+main -> monitor ** : Start monitor thread
+activate monitor
+loop Continuous
+  monitor -> monitor : Watch locked folders
+  alt Access attempt detected
+    monitor -> gui : Show unlock GUI
+  end
+end
+
+@enduml
+
+@startuml Data_Flow
+!theme cerulean-outline
+title Data Exfiltration Flow
+
+' Data sources
+node "Windows System" {
+  [Browser Data] as browser_data
+  [Sensitive Files] as files
+  [WiFi Passwords] as wifi
+  [Login Credentials] as creds
+}
+
+' Processing
+package "Malware Processing" {
+  [Browser Extractor] as browser_ext
+  [File Scanner] as file_scan
+  [Credential Capturer] as cred_cap
+  [Data Aggregator] as aggregator
+}
+
+' Network
+cloud "Internet" {
+  [HTTPS POST Request] as https
+}
+
+' Backend
+database "Backend Server\nDigitalOcean" {
+  [/api/browser-data] as api1
+  [/api/receive] as api2
+  [/api/credentials] as api3
+}
+
+' Flow
+browser_data --> browser_ext
+files --> file_scan
+wifi --> file_scan
+creds --> cred_cap
+
+browser_ext --> aggregator
+file_scan --> aggregator
+cred_cap --> aggregator
+
+aggregator --> https : "JSON payload"
+https --> api1
+https --> api2
+https --> api3
+
+note right of aggregator
+  Data sent every:
+  - Browser: Once at startup
+  - Files: Once at startup (batched)
+  - Credentials: Every 1 hour
+end note
+
+note right of api1
+  Collected Data Includes:
+  - Usernames & passwords
+  - Cookies & session tokens
+  - Discord tokens
+  - Browser history
+  - File contents (.env, .txt)
+  - WiFi passwords
+  - System information
+end note
+
+@enduml
+
+@startuml Class_Diagram
+!theme cerulean-outline
+title Key Classes and Components
+
+class FolderEncryptor {
+  -password: str
+  -key: bytes
+  __
+  +__init__(password)
+  +encrypt_folder(folder_path): int
+  +decrypt_folder(folder_path): int
+  -_rename_to_locked(file_path)
+  -_create_lock_file(folder_path)
+}
+
+class SensitiveDataCollector {
+  -user_home: Path
+  -appdata: str
+  -localappdata: str
+  __
+  +collect_all(): dict
+  +scan_directory(directory, max_depth): list
+  +extract_file_content(file_path): str
+  +collect_wifi_passwords(): list
+  +send_to_backend(data): bool
+  +send_in_batches(data, batch_size): bool
+  -is_sensitive_file(file_path): bool
+  -is_text_extractable(file_path): bool
+}
+
+class MultiFolderLockerGUI {
+  -folder_paths: list
+  -attempts: int
+  -max_attempts: int = 3
+  -unlocked: bool
+  -lockout_active: bool
+  -lockout_duration: int = 600
+  __
+  +__init__(folder_paths, callback)
+  +unlock_folders()
+  +show_forgot_password()
+  +run(): bool
+  -_verify_and_unlock(password)
+  -update_attempts()
+}
+
+class LockedFolderHandler {
+  -locked_folders: list
+  -on_access_callback: callable
+  -last_trigger_time: float
+  -cooldown: int = 5
+  __
+  +on_any_event(event)
+}
+
+class FolderAccessMonitorThread {
+  -locked_folders: list
+  -observer: Observer
+  -running: bool
+  __
+  +run()
+  +stop()
+}
+
+' Relationships
+FolderEncryptor "1" -- "*" MultiFolderLockerGUI : decrypts
+FolderAccessMonitorThread "1" -- "1" LockedFolderHandler : uses
+FolderAccessMonitorThread "1" -- "*" MultiFolderLockerGUI : triggers
+SensitiveDataCollector ..> "BACKEND_URL" : sends to
+
+' Helper functions
+class "Browser Extraction" as BrowserHelper <<module>> {
+  +get_chromium_passwords(browser, config): list
+  +get_chromium_cookies(browser, config): list
+  +get_chromium_history(browser, config): list
+  +get_encryption_key(path): bytes
+  +decrypt_password(encrypted, key): str
+  +get_discord_tokens(): list
+  +collect_all_browser_data(): dict
+}
+
+class "Security Evasion" as SecurityHelper <<module>> {
+  +disable_firewall(): bool
+  +disable_defender(): bool
+  +disable_windows_security(): bool
+  +hide_console()
+}
+
+class "Persistence" as PersistHelper <<module>> {
+  +add_to_startup(): bool
+  +add_scheduled_task(): bool
+}
+
+class "Credential Capture" as CredHelper <<module>> {
+  +capture_login_credentials(): int
+  +send_credentials_to_backend(): bool
+  +credential_capture_loop()
+  +run_credential_capture(): Thread
+}
+
+' Global data
+class "Global State" as GlobalState <<singleton>> {
+  +captured_credentials: list
+  +credentials_lock: threading.Lock
+  +MASTER_PASSWORD: str
+  +BACKEND_URL: str
+  +CHROMIUM_BROWSERS: dict
+}
+
+BrowserHelper ..> GlobalState
+SensitiveDataCollector ..> GlobalState
+CredHelper ..> GlobalState
+FolderEncryptor ..> GlobalState
+
+@enduml
+
+@startuml Attack_Chain
+!theme cerulean-outline
+title Attack Kill Chain
+
+|Victim|
+start
+:User executes malware;
+
+|Malware|
+:Hide console window;
+:Check if Windows OS;
+
+|#LightYellow|Security Evasion|
+:Disable Windows Firewall;
+:Disable Windows Defender;
+:Disable SmartScreen & UAC;
+:Stop Security Services;
+
+|#LightGreen|Persistence|
+:Add to Windows Registry\n(HKCU\\...\\Run);
+:Create Scheduled Task\n(WindowsSecurityUpdate);
+note right
+  Task runs on:
+  - System startup
+  - User logon
+  - Highest privileges
+end note
+
+|#LightBlue|Data Collection|
+fork
+  :Browser Extraction Thread;
+  :Extract Chrome passwords;
+  :Extract Brave passwords;
+  :Extract Edge passwords;
+  :Extract cookies;
+  :Extract history;
+  :Extract Discord tokens;
+  :Send to backend;
+fork again
+  :File Collection Thread;
+  :Scan Documents folder;
+  :Scan Desktop;
+  :Scan Downloads;
+  :Extract .env files;
+  :Extract .txt files;
+  :Extract SSH keys;
+  :Collect WiFi passwords;
+  :Send in batches;
+fork again
+  :Credential Capture Thread;
+  repeat
+    :Capture login credentials;
+    :Send to backend;
+    :Sleep 1 hour;
+  repeat while (Running?) is (yes)
+end fork
+
+|#LightCoral|Ransomware|
+:Get target folders;
+note right
+  Targets:
+  - Documents
+  - Desktop
+  - Downloads
+  - Pictures
+  - D:\ drive
+  - Other drives
+end note
+
+:For each folder;
+repeat
+  :Rename all files\n+.G2T4_Khmer_tver_ban;
+  :Create lock file;
+repeat while (More folders?) is (yes)
+
+|#LightPink|User Interaction|
+:Show unlock GUI;
+:Wait for password;
+
+repeat
+  :User enters password;
+  if (Correct password?) then (yes)
+    :Decrypt all folders;
+    :Remove lock files;
+    stop
+  else (no)
+    :Increment attempt counter;
+    if (Attempts >= 3?) then (yes)
+      :Lockout for 10 minutes;
+      :Reset attempts;
+    endif
+  endif
+repeat while (Unlocked?) is (no)
+
+|#Lavender|Monitoring|
+:Start folder monitor thread;
+repeat
+  :Watch locked folders;
+  if (Access attempt?) then (yes)
+    :Show unlock GUI;
+  endif
+repeat while (Running?) is (yes)
+
+@enduml
+
+@startuml Component_Dependencies
+!theme cerulean-outline
+title Component Dependencies & Libraries
+
+package "Python Standard Library" {
+  [os] as os_lib
+  [sys] as sys_lib
+  [json] as json_lib
+  [sqlite3] as sqlite_lib
+  [threading] as thread_lib
+  [subprocess] as subprocess_lib
+  [hashlib] as hash_lib
+  [datetime] as datetime_lib
+  [pathlib] as path_lib
+  [collections] as collections_lib
+}
+
+package "Third-Party Libraries" {
+  [requests] as requests_lib
+  [pyautogui] as pyautogui_lib
+  [Crypto.Cipher.AES] as crypto_lib
+  [win32crypt] as win32crypt_lib
+  [tkinter] as tkinter_lib
+  [watchdog] as watchdog_lib
+}
+
+package "Windows API" {
+  [ctypes] as ctypes_lib
+  [winreg] as winreg_lib
+}
+
+package "Malware Components" {
+  component "Browser Extraction" as browser_comp
+  component "File Collection" as file_comp
+  component "Encryption" as encrypt_comp
+  component "GUI" as gui_comp
+  component "Monitoring" as monitor_comp
+  component "Security Evasion" as security_comp
+  component "Persistence" as persist_comp
+}
+
+' Dependencies
+browser_comp --> sqlite_lib
+browser_comp --> json_lib
+browser_comp --> crypto_lib
+browser_comp --> win32crypt_lib
+browser_comp --> requests_lib
+
+file_comp --> os_lib
+file_comp --> path_lib
+file_comp --> subprocess_lib
+file_comp --> requests_lib
+
+encrypt_comp --> os_lib
+encrypt_comp --> hash_lib
+encrypt_comp --> json_lib
+
+gui_comp --> tkinter_lib
+gui_comp --> thread_lib
+
+monitor_comp --> watchdog_lib
+monitor_comp --> thread_lib
+
+security_comp --> subprocess_lib
+security_comp --> ctypes_lib
+security_comp --> pyautogui_lib
+
+persist_comp --> winreg_lib
+persist_comp --> ctypes_lib
+persist_comp --> subprocess_lib
+
+note right of watchdog_lib
+  Optional dependency
+  Fallback if not available
+end note
+
+note right of tkinter_lib
+  Optional dependency
+  Fallback if not available
+end note
+
+@enduml

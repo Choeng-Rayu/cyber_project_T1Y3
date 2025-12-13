@@ -1,0 +1,116 @@
+@startuml AntiMaliciousDefenderDeployment
+title Anti-Malicious Defender Deployment Flow
+
+skinparam componentStyle rectangle
+skinparam backgroundColor #a5b8e2ff
+skinparam component {
+    BackgroundColor #536581ff
+    BorderColor #475569
+    FontColor #e2e8f0
+}
+
+package "Deployment Flow" {
+    rectangle "User Executes\nAnti-Malicious Defender" as start
+
+    rectangle "Check Execution Type" as check_type
+    
+    rectangle "Command Line\nArguments?" as args_check #lightyellow
+    
+    package "Installation Phase" {
+        rectangle "Create Scheduled Task" as create_task
+        rectangle "Add to Registry Startup" as reg_startup
+        rectangle "Create Desktop Shortcut" as desktop_shortcut
+        rectangle "Create Start Menu Entry" as start_menu
+    }
+    
+    package "Operation Phase" {
+        rectangle "Which Mode?" as mode_select #lightyellow
+        
+        rectangle "GUI Mode" as gui_operate
+        rectangle "Background Service" as bg_operate
+        rectangle "CLI Mode" as cli_operate
+    }
+    
+    rectangle "Uninstallation" as uninstall
+}
+
+' Flow connections
+start --> check_type
+check_type --> args_check
+
+args_check --> create_task : "No args + first run"
+args_check --> mode_select : "Has args or not first run"
+
+create_task --> reg_startup
+reg_startup --> desktop_shortcut
+desktop_shortcut --> start_menu
+start_menu --> mode_select : "After installation"
+
+args_check --> uninstall : "--uninstall flag"
+
+mode_select --> gui_operate : "--gui flag"
+mode_select --> bg_operate : "--background flag"
+mode_select --> cli_operate : "--scan flag"
+
+' Continuous protection & Response actions
+rectangle "Continuous\nProtection Loop" as cont_loop
+rectangle "One-time Scan" as onetime
+
+rectangle "Quarantine Files" as quarantine_action
+rectangle "Kill Processes" as kill_action
+rectangle "Clean Registry" as registry_action
+rectangle "Restore Files" as restore_action
+rectangle "Block Network" as block_action
+
+' Management systems
+rectangle "Quarantine\nManagement" as quarantine_mgmt
+rectangle "Process Logging" as proc_log
+rectangle "Registry Backup" as reg_backup
+rectangle "Recovery Report" as recovery_report
+rectangle "Network Log" as net_log
+
+' Flow connections
+gui_operate --> cont_loop
+bg_operate --> cont_loop
+cli_operate --> onetime
+
+cont_loop --> quarantine_action
+cont_loop --> kill_action
+cont_loop --> registry_action
+cont_loop --> restore_action
+cont_loop --> block_action
+
+quarantine_action --> quarantine_mgmt
+kill_action --> proc_log
+registry_action --> reg_backup
+restore_action --> recovery_report
+block_action --> net_log
+
+' Add notes for clarity
+note right of check_type
+  <b>Check Execution Type:</b>
+  • Is compiled EXE?
+  • Is Python script?
+  • First time running?
+end note
+
+note left of create_task
+  <b>Create Scheduled Task:</b>
+  • schtasks /create
+  • ONLOGON trigger
+  • HIGHEST privileges
+end note
+
+note bottom of cont_loop
+  <b>Continuous Protection:</b>
+  • Quick scan every 5 min
+  • Monitor browser access
+  • Watch registry changes
+  • Check for ransomware
+  • Block malicious network
+  • Monitor USB drives
+  • Prevent network spreading
+  • Watch processes
+end note
+
+@enduml
